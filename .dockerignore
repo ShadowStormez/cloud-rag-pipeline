@@ -1,4 +1,15 @@
-.venv
+# Git repository
+.git
+.gitignore
+
+# Python environment and cache
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets
 .env
-__pycache__
+.env.*
+
+# macOS files
 .DS_Store

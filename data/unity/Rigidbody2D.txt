@@ -1,0 +1,363 @@
+Rigidbody2D
+Provides physics movement and other dynamics, and the ability to attach Collider2D to it.
+Read time 10 minutes
+Last updated 2 months ago
+Definition
+Type:
+Class
+Namespace:
+UnityEngine
+Assembly:
+UnityEngine.Physics2DModule
+Inherits from:
+Component
+[RequireComponent(typeof(Transform))]
+public sealed class Rigidbody2D : Component
+Remarks
+The
+Rigidbody2D
+is a fundamental physics component that provides multiple simulation dynamics, such as
+Rigidbody2D.position
+and
+Rigidbody2D.rotation
+for pose control, and
+Rigidbody2D.linearVelocity
+and
+Rigidbody2D.angularVelocity
+for velocity control.
+You can attach multiple
+Collider2D
+to a
+Rigidbody2D
+to detect collisions and provide a collision response when you set
+Rigidbody2D.bodyType
+to
+RigidbodyType2D.Dynamic
+.
+Properties
+Property
+Description
+angularDamping
+The angular damping of the Rigidbody2D angular velocity.
+angularVelocity
+Angular velocity in degrees per second.
+attachedColliderCount
+Returns the number of
+Collider2D
+attached to this
+Rigidbody2D
+.
+bodyType
+The physical behaviour type of the
+Rigidbody2D
+.
+centerOfMass
+The center of mass of the rigidBody in local space.
+collisionDetectionMode
+The method used by the physics engine to check if two objects have collided.
+constraints
+Controls which degrees of freedom are allowed for the simulation of this
+Rigidbody2D
+.
+excludeLayers
+The additional Layers that all
+Collider2D
+attached to this
+Rigidbody2D
+should exclude when deciding if a contact with another
+Collider2D
+should happen or not.
+freezeRotation
+Controls whether physics will change the rotation of the object.
+gravityScale
+The degree to which this object is affected by gravity.
+includeLayers
+The additional Layers that all
+Collider2D
+attached to this
+Rigidbody2D
+should include when deciding if a contact with another
+Collider2D
+should happen or not.
+inertia
+The Rigidbody's resistance to changes in angular velocity (rotation).
+interpolation
+Physics interpolation used between updates.
+linearDamping
+The linear damping of the Rigidbody2D linear velocity.
+linearVelocity
+The linear velocity of the Rigidbody2D represents the rate of change over time of the Rigidbody2D position in world-units.
+linearVelocityX
+The X component of the linear velocity of the Rigidbody2D in world-units per second.
+linearVelocityY
+The Y component of the linear velocity of the Rigidbody2D in world-units per second.
+localToWorldMatrix
+The transformation matrix used to transform the Rigidbody2D to world space.
+mass
+Mass of the Rigidbody.
+position
+The position of the rigidbody.
+rotation
+The rotation of the rigidbody.
+sharedMaterial
+The
+PhysicsMaterial2D
+that is applied to all
+Collider2D
+attached to this
+Rigidbody2D
+.
+simulated
+Indicates whether the rigid body should be simulated or not by the physics system.
+sleepMode
+The sleep state that the rigidbody will initially be in.
+totalForce
+The total amount of force that has been explicitly applied to this
+Rigidbody2D
+since the last physics simulation step.
+totalTorque
+The total amount of torque that has been explicitly applied to this
+Rigidbody2D
+since the last physics simulation step.
+useAutoMass
+Should the total rigid-body
+Rigidbody2D.mass
+be automatically calculated from the <see cref="
+Collider2D.density
+"> of attached colliders?
+useFullKinematicContacts
+Should kinematic/kinematic and kinematic/static collisions be allowed?
+worldCenterOfMass
+Gets the center of mass of the rigidBody in global space.
+Methods
+Method
+Description
+AddForce
+Apply a force to the rigidbody.
+AddForceAtPosition
+Apply a force at a given position in space.
+AddForceX
+Adds a force to the X component of the
+Rigidbody2D.linearVelocity
+only leaving the Y component of the world space
+Rigidbody2D.linearVelocity
+untouched.
+AddForceY
+Adds a force to the Y component of the
+Rigidbody2D.linearVelocity
+only leaving the X component of the world space
+Rigidbody2D.linearVelocity
+untouched.
+AddRelativeForce
+Adds a force to the local space
+Rigidbody2D.linearVelocity
+. In other words, the force is applied in the rotated coordinate space of the
+Rigidbody2D
+.
+AddRelativeForceX
+Adds a force to the X component of the
+Rigidbody2D.linearVelocity
+in the local space of the
+Rigidbody2D
+only leaving the Y component of the local space
+Rigidbody2D.linearVelocity
+untouched.
+AddRelativeForceY
+Adds a force to the Y component of the
+Rigidbody2D.linearVelocity
+in the local space of the
+Rigidbody2D
+only leaving the X component of the local space
+Rigidbody2D.linearVelocity
+untouched.
+AddTorque
+Apply a torque at the rigidbody's centre of mass.
+Cast
+All the
+Collider2D
+shapes attached to the
+Rigidbody2D
+are cast into the Scene starting at each Collider position ignoring the Colliders attached to the same
+Rigidbody2D
+.
+ClosestPoint
+Returns a point on the perimeter of all enabled Colliders attached to this Rigidbody that is closest to the specified position.
+Distance
+Calculates the minimum distance of this collider against all
+Collider2D
+attached to this
+Rigidbody2D
+.
+GetAttachedColliders
+Returns all
+Collider2D
+that are attached to this
+Rigidbody2D
+.
+GetContacts
+Retrieves all Colliders in contact with any of the Collider(s) attached to this Rigidbody.
+GetPoint
+Get a local space point given the point point in rigidBody global space.
+GetPointVelocity
+The velocity of the rigidbody at the point Point in global space.
+GetRelativePoint
+Get a global space point given the point relativePoint in rigidBody local space.
+GetRelativePointVelocity
+The velocity of the rigidbody at the point Point in local space.
+GetRelativeVector
+Get a global space vector given the vector relativeVector in rigidBody local space.
+GetShapes
+Gets all the
+PhysicsShape2D
+used by all
+Collider2D
+attached to the
+Rigidbody2D
+.
+GetVector
+Get a local space vector given the vector vector in rigidBody global space.
+IsAwake
+Is the rigidbody "awake"?
+IsSleeping
+Is the rigidbody "sleeping"?
+IsTouching
+Checks whether the collider  is touching any of the collider(s) attached to this rigidbody or not.
+IsTouchingLayers
+Checks whether any of the collider(s) attached to this rigidbody are touching any colliders on the specified layerMask or not.
+MovePosition
+Moves the rigidbody to position.
+MovePositionAndRotation
+Moves the rigidbody position to position and the rigidbody angle to angle.
+MoveRotation
+Rotates the Rigidbody to angle (given in degrees).
+Overlap
+Get a list of all Colliders that overlap all Colliders attached to this
+Rigidbody2D
+.
+OverlapPoint
+Check if any of the
+Rigidbody2D
+colliders overlap a point in space.
+SetRotation
+Sets the rotation of the
+Rigidbody2D
+to angle (given in degrees).
+Sleep
+Make the rigidbody "sleep".
+Slide
+Slide the
+Rigidbody2D
+using the specified velocity integrated over deltaTime using the configuration specified by slideMovement.
+WakeUp
+Disables the "sleeping" state of a rigidbody.
+Structs
+Struct
+Description
+Rigidbody2D.SlideMovement
+The configuration that controls how a
+Rigidbody2D.Slide
+method behaves.
+Rigidbody2D.SlideResults
+The results of a slide movement performed with
+Rigidbody2D.Slide
+.
+Inheritance
+Inherited Members
+Component.GetComponent(Type)
+Component.GetComponent<T>()
+Component.TryGetComponent(Type, Component)
+Component.TryGetComponent<T>(T)
+Component.GetComponent(string)
+Component.GetComponentInChildren(Type, bool)
+Component.GetComponentInChildren(Type)
+Component.GetComponentInChildren<T>(bool)
+Component.GetComponentsInChildren(Type, bool)
+Component.GetComponentsInChildren<T>(bool)
+Component.GetComponentsInChildren<T>(bool, List<T>)
+Component.GetComponentsInChildren<T>()
+Component.GetComponentsInChildren<T>(List<T>)
+Component.GetComponentInParent(Type, bool)
+Component.GetComponentInParent(Type)
+Component.GetComponentInParent<T>(bool)
+Component.GetComponentInParent<T>()
+Component.GetComponentsInParent(Type, bool)
+Component.GetComponentsInParent<T>(bool)
+Component.GetComponentsInParent<T>(bool, List<T>)
+Component.GetComponentsInParent<T>()
+Component.GetComponents(Type)
+Component.GetComponents(Type, List<Component>)
+Component.GetComponents<T>(List<T>)
+Component.GetComponents<T>()
+Component.GetComponentIndex()
+Component.CompareTag(string)
+Component.CompareTag(TagHandle)
+Component.SendMessageUpwards(string, Object, SendMessageOptions)
+Component.SendMessageUpwards(string, SendMessageOptions)
+Component.SendMessage(string, Object)
+Component.SendMessage(string)
+Component.SendMessage(string, Object, SendMessageOptions)
+Component.SendMessage(string, SendMessageOptions)
+Component.BroadcastMessage(string, Object, SendMessageOptions)
+Component.BroadcastMessage(string, SendMessageOptions)
+Component.transform
+Component.gameObject
+Component.tag
+Object.GetInstanceID()
+Object.GetHashCode()
+Object.InstantiateAsync<T>(T)
+Object.InstantiateAsync<T>(T, Transform)
+Object.InstantiateAsync<T>(T, Vector3, Quaternion)
+Object.InstantiateAsync<T>(T, Transform, Vector3, Quaternion)
+Object.InstantiateAsync<T>(T, int)
+Object.InstantiateAsync<T>(T, int, Transform)
+Object.InstantiateAsync<T>(T, int, Vector3, Quaternion)
+Object.InstantiateAsync<T>(T, int, ReadOnlySpan<Vector3>, ReadOnlySpan<Quaternion>)
+Object.InstantiateAsync<T>(T, int, Transform, Vector3, Quaternion)
+Object.InstantiateAsync<T>(T, int, Transform, Vector3, Quaternion, CancellationToken)
+Object.InstantiateAsync<T>(T, int, Transform, ReadOnlySpan<Vector3>, ReadOnlySpan<Quaternion>)
+Object.InstantiateAsync<T>(T, int, Transform, ReadOnlySpan<Vector3>, ReadOnlySpan<Quaternion>, CancellationToken)
+Object.InstantiateAsync<T>(T, InstantiateParameters, CancellationToken)
+Object.InstantiateAsync<T>(T, int, InstantiateParameters, CancellationToken)
+Object.InstantiateAsync<T>(T, Vector3, Quaternion, InstantiateParameters, CancellationToken)
+Object.InstantiateAsync<T>(T, int, Vector3, Quaternion, InstantiateParameters, CancellationToken)
+Object.InstantiateAsync<T>(T, int, ReadOnlySpan<Vector3>, ReadOnlySpan<Quaternion>, InstantiateParameters, CancellationToken)
+Object.Instantiate(Object, Vector3, Quaternion)
+Object.Instantiate(Object, Vector3, Quaternion, Transform)
+Object.Instantiate(Object)
+Object.Instantiate(Object, Scene)
+Object.Instantiate<T>(T, InstantiateParameters)
+Object.Instantiate<T>(T, Vector3, Quaternion, InstantiateParameters)
+Object.Instantiate(Object, Transform)
+Object.Instantiate(Object, Transform, bool)
+Object.Instantiate<T>(T)
+Object.Instantiate<T>(T, Vector3, Quaternion)
+Object.Instantiate<T>(T, Vector3, Quaternion, Transform)
+Object.Instantiate<T>(T, Transform)
+Object.Instantiate<T>(T, Transform, bool)
+Object.Destroy(Object, float)
+Object.DestroyImmediate(Object, bool)
+Object.FindObjectsByType(Type, FindObjectsSortMode)
+Object.FindObjectsByType(Type, FindObjectsInactive, FindObjectsSortMode)
+Object.DontDestroyOnLoad(Object)
+Object.FindObjectsByType<T>(FindObjectsSortMode)
+Object.FindObjectsByType<T>(FindObjectsInactive, FindObjectsSortMode)
+Object.FindFirstObjectByType<T>()
+Object.FindAnyObjectByType<T>()
+Object.FindFirstObjectByType<T>(FindObjectsInactive)
+Object.FindAnyObjectByType<T>(FindObjectsInactive)
+Object.FindFirstObjectByType(Type)
+Object.FindAnyObjectByType(Type)
+Object.FindFirstObjectByType(Type, FindObjectsInactive)
+Object.FindAnyObjectByType(Type, FindObjectsInactive)
+Object.ToString()
+Object.name
+Object.hideFlags
+Operators
+Operator
+Description
+operator ==
+Compares two object references to see if they refer to the same object.
+bool
+Determines whether the object exists.
+operator !=
+Compares if two objects refer to a different object.

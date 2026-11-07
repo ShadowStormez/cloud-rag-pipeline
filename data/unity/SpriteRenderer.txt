@@ -1,0 +1,239 @@
+SpriteRenderer
+Renders a Sprite for 2D graphics.
+Read time 10 minutes
+Last updated 2 months ago
+Definition
+Type:
+Class
+Namespace:
+UnityEngine
+Assembly:
+UnityEngine.CoreModule
+Inherits from:
+Renderer
+[RequireComponent(typeof(Transform))]
+public sealed class SpriteRenderer : Renderer
+Examples
+//This example outputs Sliders that control the red green and blue elements of a sprite's color
+//Attach this to a GameObject and attach a SpriteRenderer component
+using UnityEngine;
+public class Example : MonoBehaviour
+{
+SpriteRenderer m_SpriteRenderer;
+//The Color to be assigned to the Renderer’s Material
+Color m_NewColor;
+//These are the values that the Color Sliders return
+float m_Red, m_Blue, m_Green;
+void Start()
+{
+//Fetch the SpriteRenderer from the GameObject
+m_SpriteRenderer = GetComponent<SpriteRenderer>();
+//Set the GameObject's Color quickly to a set Color (blue)
+m_SpriteRenderer.color = Color.blue;
+}
+void OnGUI()
+{
+//Use the Sliders to manipulate the RGB component of Color
+//Use the Label to identify the Slider
+GUI.Label(new Rect(0, 30, 50, 30), "Red: ");
+//Use the Slider to change amount of red in the Color
+m_Red = GUI.HorizontalSlider(new Rect(35, 25, 200, 30), m_Red, 0, 1);
+//The Slider manipulates the amount of green in the GameObject
+GUI.Label(new Rect(0, 70, 50, 30), "Green: ");
+m_Green = GUI.HorizontalSlider(new Rect(35, 60, 200, 30), m_Green, 0, 1);
+//This Slider decides the amount of blue in the GameObject
+GUI.Label(new Rect(0, 105, 50, 30), "Blue: ");
+m_Blue = GUI.HorizontalSlider(new Rect(35, 95, 200, 30), m_Blue, 0, 1);
+//Set the Color to the values gained from the Sliders
+m_NewColor = new Color(m_Red, m_Green, m_Blue);
+//Set the SpriteRenderer to the Color defined by the Sliders
+m_SpriteRenderer.color = m_NewColor;
+}
+}
+Properties
+Property
+Description
+adaptiveModeThreshold
+The current threshold for Sprite Renderer tiling.
+color
+Rendering color for the Sprite graphic.
+drawMode
+The current draw mode of the Sprite Renderer.
+flipX
+Flips the sprite on the X axis.
+flipY
+Flips the sprite on the Y axis.
+maskInteraction
+Specifies how the sprite interacts with the masks.
+size
+Property to set or get the size to render when the
+SpriteRenderer.drawMode
+is set to
+SpriteDrawMode.Sliced
+or
+SpriteDrawMode.Tiled
+.
+sprite
+The Sprite to render.
+spriteSortPoint
+Determines the position of the
+Sprite
+used for sorting the
+SpriteRenderer
+.
+tileMode
+The current tile mode of the Sprite Renderer.
+Methods
+Method
+Description
+RegisterSpriteChangeCallback
+Registers a callback to receive a notification when the SpriteRenderer's Sprite reference changes.
+UnregisterSpriteChangeCallback
+Removes a callback (that receives a notification when the Sprite reference changes) that was previously registered to a SpriteRenderer.
+Inheritance
+Inherited Members
+Renderer.ResetBounds()
+Renderer.ResetLocalBounds()
+Renderer.HasPropertyBlock()
+Renderer.SetPropertyBlock(MaterialPropertyBlock)
+Renderer.SetPropertyBlock(MaterialPropertyBlock, int)
+Renderer.GetPropertyBlock(MaterialPropertyBlock)
+Renderer.GetPropertyBlock(MaterialPropertyBlock, int)
+Renderer.GetMaterials(List<Material>)
+Renderer.SetSharedMaterials(List<Material>)
+Renderer.SetMaterials(List<Material>)
+Renderer.GetSharedMaterials(List<Material>)
+Renderer.GetClosestReflectionProbes(List<ReflectionProbeBlendInfo>)
+Renderer.bounds
+Renderer.localBounds
+Renderer.enabled
+Renderer.isVisible
+Renderer.shadowCastingMode
+Renderer.receiveShadows
+Renderer.forceRenderingOff
+Renderer.staticShadowCaster
+Renderer.motionVectorGenerationMode
+Renderer.lightProbeUsage
+Renderer.reflectionProbeUsage
+Renderer.renderingLayerMask
+Renderer.rendererPriority
+Renderer.rayTracingMode
+Renderer.rayTracingAccelerationStructureBuildFlags
+Renderer.rayTracingAccelerationStructureBuildFlagsOverride
+Renderer.sortingLayerName
+Renderer.sortingLayerID
+Renderer.sortingOrder
+Renderer.isLOD0
+Renderer.allowOcclusionWhenDynamic
+Renderer.isPartOfStaticBatch
+Renderer.worldToLocalMatrix
+Renderer.localToWorldMatrix
+Renderer.lightProbeProxyVolumeOverride
+Renderer.probeAnchor
+Renderer.lightmapIndex
+Renderer.realtimeLightmapIndex
+Renderer.lightmapScaleOffset
+Renderer.realtimeLightmapScaleOffset
+Renderer.materials
+Renderer.material
+Renderer.sharedMaterial
+Renderer.sharedMaterials
+Renderer.LODGroup()
+Component.GetComponent(Type)
+Component.GetComponent<T>()
+Component.TryGetComponent(Type, Component)
+Component.TryGetComponent<T>(T)
+Component.GetComponent(string)
+Component.GetComponentInChildren(Type, bool)
+Component.GetComponentInChildren(Type)
+Component.GetComponentInChildren<T>(bool)
+Component.GetComponentsInChildren(Type, bool)
+Component.GetComponentsInChildren<T>(bool)
+Component.GetComponentsInChildren<T>(bool, List<T>)
+Component.GetComponentsInChildren<T>()
+Component.GetComponentsInChildren<T>(List<T>)
+Component.GetComponentInParent(Type, bool)
+Component.GetComponentInParent(Type)
+Component.GetComponentInParent<T>(bool)
+Component.GetComponentInParent<T>()
+Component.GetComponentsInParent(Type, bool)
+Component.GetComponentsInParent<T>(bool)
+Component.GetComponentsInParent<T>(bool, List<T>)
+Component.GetComponentsInParent<T>()
+Component.GetComponents(Type)
+Component.GetComponents(Type, List<Component>)
+Component.GetComponents<T>(List<T>)
+Component.GetComponents<T>()
+Component.GetComponentIndex()
+Component.CompareTag(string)
+Component.CompareTag(TagHandle)
+Component.SendMessageUpwards(string, Object, SendMessageOptions)
+Component.SendMessageUpwards(string, SendMessageOptions)
+Component.SendMessage(string, Object)
+Component.SendMessage(string)
+Component.SendMessage(string, Object, SendMessageOptions)
+Component.SendMessage(string, SendMessageOptions)
+Component.BroadcastMessage(string, Object, SendMessageOptions)
+Component.BroadcastMessage(string, SendMessageOptions)
+Component.transform
+Component.gameObject
+Component.tag
+Object.GetInstanceID()
+Object.GetHashCode()
+Object.InstantiateAsync<T>(T)
+Object.InstantiateAsync<T>(T, Transform)
+Object.InstantiateAsync<T>(T, Vector3, Quaternion)
+Object.InstantiateAsync<T>(T, Transform, Vector3, Quaternion)
+Object.InstantiateAsync<T>(T, int)
+Object.InstantiateAsync<T>(T, int, Transform)
+Object.InstantiateAsync<T>(T, int, Vector3, Quaternion)
+Object.InstantiateAsync<T>(T, int, ReadOnlySpan<Vector3>, ReadOnlySpan<Quaternion>)
+Object.InstantiateAsync<T>(T, int, Transform, Vector3, Quaternion)
+Object.InstantiateAsync<T>(T, int, Transform, Vector3, Quaternion, CancellationToken)
+Object.InstantiateAsync<T>(T, int, Transform, ReadOnlySpan<Vector3>, ReadOnlySpan<Quaternion>)
+Object.InstantiateAsync<T>(T, int, Transform, ReadOnlySpan<Vector3>, ReadOnlySpan<Quaternion>, CancellationToken)
+Object.InstantiateAsync<T>(T, InstantiateParameters, CancellationToken)
+Object.InstantiateAsync<T>(T, int, InstantiateParameters, CancellationToken)
+Object.InstantiateAsync<T>(T, Vector3, Quaternion, InstantiateParameters, CancellationToken)
+Object.InstantiateAsync<T>(T, int, Vector3, Quaternion, InstantiateParameters, CancellationToken)
+Object.InstantiateAsync<T>(T, int, ReadOnlySpan<Vector3>, ReadOnlySpan<Quaternion>, InstantiateParameters, CancellationToken)
+Object.Instantiate(Object, Vector3, Quaternion)
+Object.Instantiate(Object, Vector3, Quaternion, Transform)
+Object.Instantiate(Object)
+Object.Instantiate(Object, Scene)
+Object.Instantiate<T>(T, InstantiateParameters)
+Object.Instantiate<T>(T, Vector3, Quaternion, InstantiateParameters)
+Object.Instantiate(Object, Transform)
+Object.Instantiate(Object, Transform, bool)
+Object.Instantiate<T>(T)
+Object.Instantiate<T>(T, Vector3, Quaternion)
+Object.Instantiate<T>(T, Vector3, Quaternion, Transform)
+Object.Instantiate<T>(T, Transform)
+Object.Instantiate<T>(T, Transform, bool)
+Object.Destroy(Object, float)
+Object.DestroyImmediate(Object, bool)
+Object.FindObjectsByType(Type, FindObjectsSortMode)
+Object.FindObjectsByType(Type, FindObjectsInactive, FindObjectsSortMode)
+Object.DontDestroyOnLoad(Object)
+Object.FindObjectsByType<T>(FindObjectsSortMode)
+Object.FindObjectsByType<T>(FindObjectsInactive, FindObjectsSortMode)
+Object.FindFirstObjectByType<T>()
+Object.FindAnyObjectByType<T>()
+Object.FindFirstObjectByType<T>(FindObjectsInactive)
+Object.FindAnyObjectByType<T>(FindObjectsInactive)
+Object.FindFirstObjectByType(Type)
+Object.FindAnyObjectByType(Type)
+Object.FindFirstObjectByType(Type, FindObjectsInactive)
+Object.FindAnyObjectByType(Type, FindObjectsInactive)
+Object.ToString()
+Object.name
+Object.hideFlags
+Operators
+Operator
+Description
+operator ==
+Compares two object references to see if they refer to the same object.
+bool
+Determines whether the object exists.
+operator !=
+Compares if two objects refer to a different object.

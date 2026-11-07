@@ -1,4 +1,17 @@
+# Environment variables and secrets
 .env
+.env.*
+
+# Python virtual environment
 .venv/
-chroma_db/
+
+# Python cache
 __pycache__/
+*.pyc
+
+# Chroma vector databases
+chroma_db/
+chroma_unity_test/
+
+# macOS
+.DS_Store
