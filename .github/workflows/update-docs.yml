@@ -30,6 +30,15 @@ jobs:
       - name: Fetch Unity documentation
         run: |
           python fetch_unity.py
+          
+      - name: Install test dependencies
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install pytest==9.2.0
+
+      - name: Run automated tests
+        run: |
+          python -m pytest tests/ -v
 
       - name: Commit documentation updates
         run: |
