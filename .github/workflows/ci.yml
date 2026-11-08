@@ -21,9 +21,9 @@ jobs:
         run: |
           python -m compileall -q -x '(^|/)(\.venv|chroma_db|chroma_unity_test)/' .
 
-      - name: Install pytest
+      - name: Install test dependencies
         run: |
-          python -m pip install pytest==9.2.0
+          python -m pip install pytest==9.2.0 requests beautifulsoup4
 
       - name: Run unit tests
         run: |
