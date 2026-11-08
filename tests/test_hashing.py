@@ -1,8 +1,4 @@
-import hashlib
-
-
-def calculate_hash(content):
-    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+from utils import calculate_hash
 
 
 def test_same_content_produces_same_hash():

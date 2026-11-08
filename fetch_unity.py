@@ -1,7 +1,20 @@
 from pathlib import Path
-import hashlib
+from utils import calculate_hash
 import requests
 from bs4 import BeautifulSoup
+
+def extract_documentation(html: str) -> str:
+    soup = BeautifulSoup(html, "html.parser")
+
+    for element in soup(["script", "style", "nav", "footer"]):
+        element.decompose()
+
+    article = soup.find("article")
+
+    if article is None:
+        raise ValueError("Documentation article not found.")
+
+    return article.get_text(separator="\n", strip=True)
 
 # Unity documentation pages to download
 UNITY_PAGES = {
@@ -29,30 +42,19 @@ def fetch_documentation(name, url):
     response = requests.get(url, timeout=20)
     response.raise_for_status()
 
-    # Parse the HTML
-    soup = BeautifulSoup(response.text, "html.parser")
-
-    # Remove unnecessary elements
-    for element in soup(["script", "style", "nav", "footer"]):
-        element.decompose()
-
-    # Extract the main documentation article
-    article = soup.find("article")
-
-    if article is None:
-        raise ValueError(f"Could not find article for {name}")
-
-    text = article.get_text(separator="\n", strip=True)
+    text = extract_documentation(response.text)
 
     # Determine the output file
     output_file = OUTPUT_DIR / f"{name}.txt"
 
     # Calculate the hash of the downloaded content
-    new_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    new_hash = calculate_hash(text)
 
     # Compare with the existing file
     if output_file.exists():
-        old_hash = hashlib.sha256(output_file.read_bytes()).hexdigest()
+        old_hash = calculate_hash(
+            output_file.read_text(encoding="utf-8")
+        )
 
         if new_hash == old_hash:
             print(f"No changes detected: {name}")
@@ -65,7 +67,6 @@ def fetch_documentation(name, url):
     print(f"New or updated documentation saved to: {output_file}")
 
     return text
-
 
 def main():
     """Download all configured Unity documentation pages."""

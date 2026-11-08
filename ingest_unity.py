@@ -1,4 +1,4 @@
-import hashlib
+from utils import calculate_hash
 from pathlib import Path
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -42,9 +42,7 @@ for file_path in sorted(DATA_DIR.glob("*.txt")):
     content = file_path.read_text(encoding="utf-8")
 
     # Calculate its SHA-256 fingerprint
-    current_hash = hashlib.sha256(
-        content.encode("utf-8")
-    ).hexdigest()
+    current_hash = calculate_hash(content)
 
     # Find existing chunks for this document
     existing = db.get(

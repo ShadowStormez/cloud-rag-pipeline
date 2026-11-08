@@ -27,4 +27,4 @@ jobs:
 
       - name: Run unit tests
         run: |
-          python -m pytest tests/test_hashing.py -v
+          python -m pytest tests/ -v
