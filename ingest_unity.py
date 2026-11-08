@@ -78,19 +78,32 @@ def ingest_documents():
             for index in range(len(chunks))
         ]
 
-        if existing_ids:
-            db.delete(ids=existing_ids)
-            print(f"Removed {len(existing_ids)} outdated chunks.")
-
+        
+        # Generate embeddings before deleting existing chunks
         if chunks:
-            db.add_documents(
-                documents=chunks,
-                ids=chunk_ids
+            chunk_texts = [chunk.page_content for chunk in chunks]
+
+            chunk_embeddings = embeddings.embed_documents(chunk_texts)
+
+            # Store prepared embeddings in Chroma
+            collection = db._collection
+
+            # Delete outdated chunks only after embedding succeeds
+            if existing_ids:
+                collection.delete(ids=existing_ids)
+                print(f"Removed {len(existing_ids)} outdated chunks.")
+
+            collection.add(
+                ids=chunk_ids,
+                documents=chunk_texts,
+                embeddings=chunk_embeddings,
+                metadatas=[chunk.metadata for chunk in chunks]
             )
 
         print(f"Stored {len(chunks)} chunks.")
 
         updated_files += 1
+
 
     print("\n--- Ingestion Summary ---")
     print(f"Updated documents: {updated_files}")

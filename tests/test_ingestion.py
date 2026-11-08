@@ -14,6 +14,8 @@ def test_ingest_new_document(tmp_path):
 
     # Create a fake Chroma database
     fake_db = MagicMock()
+    fake_embeddings = MagicMock()
+    fake_embeddings.embed_documents.return_value = [[0.1, 0.2, 0.3]]
 
     # Simulate a document that doesn't exist in Chroma
     fake_db.get.return_value = {
@@ -21,24 +23,30 @@ def test_ingest_new_document(tmp_path):
         "metadatas": []
     }
 
-    # Replace real dependencies with fake ones
     with patch.object(ingest_unity, "DATA_DIR", tmp_path), \
-         patch.object(ingest_unity, "HuggingFaceEmbeddings"), \
-         patch.object(ingest_unity, "Chroma", return_value=fake_db):
+        patch.object(
+            ingest_unity,
+            "HuggingFaceEmbeddings",
+            return_value=fake_embeddings
+        ), \
+        patch.object(ingest_unity, "Chroma", return_value=fake_db):
 
         ingest_unity.ingest_documents()
 
-    # Verify that new chunks were added to Chroma
-    fake_db.add_documents.assert_called_once()
+    # Check that embeddings were generated
+    fake_embeddings.embed_documents.assert_called_once()
 
-    # Verify that no old chunks were deleted
-    fake_db.delete.assert_not_called()
+    # Check that chunks were added to Chroma
+    fake_db._collection.add.assert_called_once()
 
-    # Inspect the documents sent to Chroma
-    documents = fake_db.add_documents.call_args.kwargs["documents"]
+    # No old chunks should be deleted
+    fake_db._collection.delete.assert_not_called()
 
-    assert len(documents) > 0
-    assert "Rigidbody2D" in documents[0].page_content
+    # Inspect the data sent to Chroma
+    stored_data = fake_db._collection.add.call_args.kwargs
+
+    assert "Rigidbody2D" in stored_data["documents"][0]
+    assert stored_data["embeddings"] == [[0.1, 0.2, 0.3]]
 
 def test_ingest_unchanged_document(tmp_path):
     # Create a temporary documentation file
@@ -65,17 +73,26 @@ def test_ingest_unchanged_document(tmp_path):
         ]
     }
 
+    fake_embeddings = MagicMock()
+
     with patch.object(ingest_unity, "DATA_DIR", tmp_path), \
-         patch.object(ingest_unity, "HuggingFaceEmbeddings"), \
-         patch.object(ingest_unity, "Chroma", return_value=fake_db):
+        patch.object(
+            ingest_unity,
+            "HuggingFaceEmbeddings",
+            return_value=fake_embeddings
+        ), \
+        patch.object(ingest_unity, "Chroma", return_value=fake_db):
 
         ingest_unity.ingest_documents()
 
-    # No new chunks should be added
-    fake_db.add_documents.assert_not_called()
+    # No embeddings should be generated
+    fake_embeddings.embed_documents.assert_not_called()
+
+    # No new chunks should be inserted
+    fake_db._collection.add.assert_not_called()
 
     # No existing chunks should be deleted
-    fake_db.delete.assert_not_called()
+    fake_db._collection.delete.assert_not_called()
 
 
 def test_ingest_updated_document(tmp_path):
@@ -103,28 +120,105 @@ def test_ingest_updated_document(tmp_path):
         ]
     }
 
-    # Replace real dependencies with mocks
+   
+    # Create a fake embedding model
+    fake_embeddings = MagicMock()
+    fake_embeddings.embed_documents.return_value = [[0.1, 0.2, 0.3]]
+
+    # Track the order of operations
+    operations = []
+
+    fake_embeddings.embed_documents.side_effect = (
+        lambda texts: (
+            operations.append("embed"),
+            [[0.1, 0.2, 0.3]]
+        )[1]
+    )
+
+    fake_db._collection.delete.side_effect = (
+        lambda **kwargs: operations.append("delete")
+    )
+
+    fake_db._collection.add.side_effect = (
+        lambda **kwargs: operations.append("add")
+    )
+
     with patch.object(ingest_unity, "DATA_DIR", tmp_path), \
-         patch.object(ingest_unity, "HuggingFaceEmbeddings"), \
+         patch.object(
+             ingest_unity,
+             "HuggingFaceEmbeddings",
+             return_value=fake_embeddings
+         ), \
          patch.object(ingest_unity, "Chroma", return_value=fake_db):
 
         ingest_unity.ingest_documents()
 
+    # Verify the correct operation order
+    assert operations == ["embed", "delete", "add"]
+
     # Verify outdated chunks were deleted
-    fake_db.delete.assert_called_once_with(
+    fake_db._collection.delete.assert_called_once_with(
         ids=["unity-Rigidbody2D-0"]
     )
 
     # Verify updated chunks were added
-    fake_db.add_documents.assert_called_once()
+    fake_db._collection.add.assert_called_once()
 
-    documents = fake_db.add_documents.call_args.kwargs["documents"]
+    stored_data = fake_db._collection.add.call_args.kwargs
 
-    assert "updated physics features" in documents[0].page_content
+    assert "updated physics features" in stored_data["documents"][0]
+    assert stored_data["embeddings"] == [[0.1, 0.2, 0.3]]
 
-    # Verify the new hash is stored in the chunk metadata
-    assert documents[0].metadata["content_hash"] == calculate_hash(
+    # Verify the updated hash is stored
+    assert stored_data["metadatas"][0]["content_hash"] == calculate_hash(
         new_content
     )
+
+
+def test_embedding_failure_preserves_old_chunks(tmp_path):
+    import pytest
+    from utils import calculate_hash
+
+    # Create updated local documentation
+    new_content = "Rigidbody2D updated documentation."
+
+    document_file = tmp_path / "Rigidbody2D.txt"
+    document_file.write_text(new_content, encoding="utf-8")
+
+    # Simulate an older version in Chroma
+    fake_db = MagicMock()
+    fake_db.get.return_value = {
+        "ids": ["unity-Rigidbody2D-0"],
+        "metadatas": [{
+            "source": document_file.as_posix(),
+            "content_hash": calculate_hash("Old documentation.")
+        }]
+    }
+
+    # Simulate an embedding model failure
+    fake_embeddings = MagicMock()
+    fake_embeddings.embed_documents.side_effect = RuntimeError(
+        "Embedding generation failed"
+    )
+
+    with patch.object(ingest_unity, "DATA_DIR", tmp_path), \
+         patch.object(
+             ingest_unity,
+             "HuggingFaceEmbeddings",
+             return_value=fake_embeddings
+         ), \
+         patch.object(ingest_unity, "Chroma", return_value=fake_db):
+
+        # Verify the failure is reported
+        with pytest.raises(RuntimeError, match="Embedding generation failed"):
+            ingest_unity.ingest_documents()
+
+    # Existing chunks must not be deleted
+    fake_db._collection.delete.assert_not_called()
+
+    # No incomplete replacement should be inserted
+    fake_db._collection.add.assert_not_called()
+
+
 
 
