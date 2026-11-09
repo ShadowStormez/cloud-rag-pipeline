@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI
+from api import app
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -11,8 +11,6 @@ from langchain_core.prompts import ChatPromptTemplate
 
 load_dotenv()
 
-# Initialize FastAPI
-app = FastAPI(title="Game Mechanics RAG API")
 
 # Setup RAG components globally so they load once when the server starts
 print("Loading database and LLM...")
