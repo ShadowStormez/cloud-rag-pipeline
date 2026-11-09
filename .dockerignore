@@ -1,11 +1,15 @@
+
 # Git repository
 .git
+.github
 .gitignore
 
 # Python environment and cache
 .venv/
 __pycache__/
+**/__pycache__/
 *.pyc
+.pytest_cache/
 
 # Secrets
 .env
@@ -13,3 +17,12 @@ __pycache__/
 
 # macOS files
 .DS_Store
+
+# Tests
+tests/
+
+# Local Chroma database
+chroma_unity_test/
+
+# Local development files
+.vscode/

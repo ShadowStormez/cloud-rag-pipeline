@@ -6,10 +6,10 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
-
+import os
 
 DATA_DIR = Path("data/unity")
-DB_DIR = "./chroma_unity_test"
+DB_DIR = os.getenv("CHROMA_DB_DIR", "./chroma_unity_test")
 
 
 def ingest_documents():

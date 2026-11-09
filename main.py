@@ -17,7 +17,12 @@ app = FastAPI(title="Game Mechanics RAG API")
 # Setup RAG components globally so they load once when the server starts
 print("Loading database and LLM...")
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-db = Chroma(persist_directory="./chroma_unity_test", embedding_function=embeddings)
+DB_DIR = os.getenv("CHROMA_DB_DIR", "./chroma_unity_test")
+
+db = Chroma(
+    persist_directory=DB_DIR,
+    embedding_function=embeddings
+)
 retriever = db.as_retriever(search_kwargs={"k": 3})
 
 llm = ChatGroq(model="openai/gpt-oss-20b")
