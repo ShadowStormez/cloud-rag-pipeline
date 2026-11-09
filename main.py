@@ -49,4 +49,18 @@ class QuestionRequest(BaseModel):
 @app.post("/ask")
 async def ask_question(request: QuestionRequest):
     response = rag_chain.invoke({"input": request.question})
-    return {"answer": response['answer']}
+
+    sources = [
+        {
+            "metadata": doc.metadata,
+            "content": doc.page_content
+        }
+        for doc in response["context"]
+    ]
+
+    return {
+        "answer": response["answer"],
+        "sources": sources
+    }
+
+
