@@ -17,5 +17,5 @@ COPY . .
 # Expose FastAPI port
 EXPOSE 8000
 
-# Start FastAPI
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Fetch documentation and populate Chroma before starting FastAPI
+CMD ["sh", "-c", "python update_docs.py && exec uvicorn main:app --host 0.0.0.0 --port 8000"]
