@@ -33,5 +33,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/shadowstormez/cloud-rag-pipeline:latest
+          tags: |
+            ghcr.io/shadowstormez/cloud-rag-pipeline:latest
+            ghcr.io/shadowstormez/cloud-rag-pipeline:sha-${{ github.sha }}
           platforms: linux/amd64
