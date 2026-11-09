@@ -12,6 +12,8 @@ __pycache__/
 # Chroma vector databases
 chroma_db/
 chroma_unity_test/
+chroma_restore_test/
+chroma_atomic_test/
 
 # macOS
 .DS_Store

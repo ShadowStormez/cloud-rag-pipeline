@@ -21,8 +21,10 @@ __pycache__/
 # Tests
 tests/
 
-# Local Chroma database
+# Local Chroma databases
 chroma_unity_test/
+chroma_restore_test/
+chroma_atomic_test/
 
 # Local development files
 .vscode/
