@@ -77,16 +77,38 @@ jobs:
         run: |
           set -euo pipefail
           url='https://cloud-rag-api.icypebble-38736748.swedencentral.azurecontainerapps.io'
+
           for attempt in {1..30}; do
             if curl --fail --silent --show-error --max-time 20 "$url/health" > /dev/null; then
               echo 'API health check passed.'
-              exit 0
+              break
             fi
             echo "Health attempt $attempt/30 failed."
             sleep 10
           done
-          echo 'New image failed health verification.'
-          exit 1
+
+          # Verify API health one final time.
+          curl --fail --silent --show-error --max-time 20 "$url/health" > /dev/null
+
+          # Verify that the deployed API supports engine selection.
+          python - <<'PYCODE'
+          import json
+          import urllib.request
+
+          url = "https://cloud-rag-api.icypebble-38736748.swedencentral.azurecontainerapps.io/openapi.json"
+
+          with urllib.request.urlopen(url, timeout=30) as response:
+              spec = json.load(response)
+
+          schemas = spec.get("components", {}).get("schemas", {})
+          request_schema = schemas.get("QuestionRequest", {})
+          properties = request_schema.get("properties", {})
+
+          if "engine" not in properties:
+              raise RuntimeError("Deployed API does not support engine selection.")
+
+          print("Multi-engine API verification passed.")
+          PYCODE
 
       - name: Restore previous image on failure
         if: ${{ failure() && steps.deploy.outputs.attempted == 'true' }}

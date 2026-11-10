@@ -222,6 +222,15 @@ jobs:
             --query 'properties.template.containers[0].image' -o tsv)
           test -n "$previous_image"
           echo "PREVIOUS_IMAGE=$previous_image" >> "$GITHUB_ENV"
+          previous_deploy_version=$(az containerapp show \
+            --name cloud-rag-api \
+            --resource-group rg-cloud-rag-pipeline \
+            --query "properties.template.containers[0].env[?name=='DEPLOY_VERSION'].value | [0]" \
+            -o tsv)
+          test -n "$previous_deploy_version"
+
+          echo "PREVIOUS_DEPLOY_VERSION=$previous_deploy_version" >> "$GITHUB_ENV"
+          echo "Previous deployment version: $previous_deploy_version"
 
           # Fail safely if the image has not been upgraded to multi-engine support.
           # A 200 response is not sufficient: old APIs may ignore the engine field.
@@ -344,8 +353,12 @@ jobs:
           echo 'Snapshot promoted and verified.'
 
       - name: Deploy updated Chroma snapshot
+        id: deploy_snapshot
         run: |
+          set -euo pipefail
           deploy_version="docs-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "TARGET_DEPLOY_VERSION=$deploy_version" >> "$GITHUB_ENV"
+          echo 'attempted=true' >> "$GITHUB_OUTPUT"
 
           echo "Deploying snapshot version: $deploy_version"
 
@@ -451,50 +464,80 @@ jobs:
           backup_file=/tmp/chroma-backup-check/backup.tar.gz
           test -s "$backup_file"
           test -n "${PREVIOUS_IMAGE:-}"
+          test -n "${PREVIOUS_DEPLOY_VERSION:-}"
           test -n "${ORIGINAL_ETAG:-}"
 
-          # If promotion failed before changing the Blob, leave it untouched.
-          state=$(az storage blob show --account-name "$account" \
-            --container-name "$container" --name "$production" \
-            --auth-mode login --query '{etag:properties.etag,status:properties.copy.status}' -o json)
-          current_etag=$(printf '%s' "$state" | python -c 'import json,sys; print(json.load(sys.stdin)["etag"])')
-          current_status=$(printf '%s' "$state" | python -c 'import json,sys; print(json.load(sys.stdin).get("status") or "")')
-          if [ "$current_etag" = "$ORIGINAL_ETAG" ]; then
-            echo 'Production snapshot was not changed; no Blob rollback needed.'
-            exit 0
-          fi
-          if [ "$current_status" = pending ]; then
-            echo 'Unexpected pending copy; automatic rollback stopped.'
-            exit 1
-          fi
-
-          # A failed upload can succeed server-side without returning an ETag.
-          # Only restore when the current Blob exactly matches our intended snapshot.
-          az storage blob download --account-name "$account" \
-            --container-name "$container" --name "$production" \
-            --file /tmp/chroma-before-rollback.tar.gz \
-            --auth-mode login --output none
-          if ! cmp -s chroma-snapshot.tar.gz /tmp/chroma-before-rollback.tar.gz; then
-            echo 'Production does not match this run snapshot; manual recovery required.'
-            exit 1
-          fi
-          # ETag precondition protects against a concurrent change after inspection.
-          az storage blob upload --account-name "$account" \
-            --container-name "$container" --name "$production" \
-            --file "$backup_file" --auth-mode login --overwrite true \
-            --if-match "$current_etag" --output none
-          az storage blob download --account-name "$account" \
-            --container-name "$container" --name "$production" \
-            --file /tmp/chroma-rollback-check.tar.gz \
-            --auth-mode login --output none
-          cmp "$backup_file" /tmp/chroma-rollback-check.tar.gz
-
-          az containerapp update --name cloud-rag-api \
+          # Do not roll back a different image or a newer deployment's revision.
+          current_image=$(az containerapp show --name cloud-rag-api \
             --resource-group rg-cloud-rag-pipeline \
-            --image "$PREVIOUS_IMAGE" \
-            --set-env-vars DEPLOY_VERSION="rollback-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
-            --output none
-          echo 'Snapshot restored and previous image redeployed.'
+            --query 'properties.template.containers[0].image' -o tsv)
+          current_version=$(az containerapp show --name cloud-rag-api \
+            --resource-group rg-cloud-rag-pipeline \
+            --query "properties.template.containers[0].env[?name=='DEPLOY_VERSION'].value | [0]" -o tsv)
+          if [ "$current_image" != "$PREVIOUS_IMAGE" ]; then
+            echo 'Container image changed since this run began; manual recovery required.'
+            exit 1
+          fi
+          if [ "$current_version" != "$PREVIOUS_DEPLOY_VERSION" ] && \
+             [ "$current_version" != "${TARGET_DEPLOY_VERSION:-}" ]; then
+            echo 'Container revision changed since this run began; manual recovery required.'
+            exit 1
+          fi
+
+          current_etag=$(az storage blob show --account-name "$account" \
+            --container-name "$container" --name "$production" \
+            --auth-mode login --query properties.etag -o tsv)
+
+          if [ "$current_etag" = "$ORIGINAL_ETAG" ]; then
+            echo 'Production Blob unchanged; skipping Blob restoration.'
+          else
+            # Restore only if the production Blob still contains our snapshot.
+            az storage blob download --account-name "$account" \
+              --container-name "$container" --name "$production" \
+              --file /tmp/chroma-before-rollback.tar.gz \
+              --auth-mode login --output none
+            if ! cmp -s chroma-snapshot.tar.gz /tmp/chroma-before-rollback.tar.gz; then
+              echo 'Blob differs from this run snapshot; manual recovery required.'
+              exit 1
+            fi
+            az storage blob upload --account-name "$account" \
+              --container-name "$container" --name "$production" \
+              --file "$backup_file" --auth-mode login --overwrite true \
+              --if-match "$current_etag" --output none
+            az storage blob download --account-name "$account" \
+              --container-name "$container" --name "$production" \
+              --file /tmp/chroma-rollback-check.tar.gz \
+              --auth-mode login --output none
+            cmp "$backup_file" /tmp/chroma-rollback-check.tar.gz
+            echo 'Previous production Blob restored and verified.'
+          fi
+
+          # The docs deployment changes DEPLOY_VERSION, not the image.
+          # Restore the prior value only if our deployment changed it.
+          if [ "$current_version" = "${TARGET_DEPLOY_VERSION:-}" ]; then
+            az containerapp update --name cloud-rag-api \
+              --resource-group rg-cloud-rag-pipeline \
+              --set-env-vars DEPLOY_VERSION="$PREVIOUS_DEPLOY_VERSION" \
+              --output none
+            echo 'Previous deployment version restored.'
+          else
+            echo 'Previous deployment version is already configured.'
+          fi
+
+          # A new revision is necessary when the Blob was reverted but our
+          # updated revision was already running; an unchanged version means
+          # the original revision should still have its original local DB.
+          api_url='https://cloud-rag-api.icypebble-38736748.swedencentral.azurecontainerapps.io/health'
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error --max-time 15 "$api_url" > /dev/null; then
+              echo 'Rollback health check passed.'
+              exit 0
+            fi
+            echo "Rollback health check $attempt/30 failed."
+            sleep 10
+          done
+          echo 'Rollback health verification failed; inspect Azure manually.'
+          exit 1
 
       - name: Commit documentation updates
         run: |
