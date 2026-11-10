@@ -285,26 +285,29 @@ jobs:
           test -n "$original_etag"
           echo "ORIGINAL_ETAG=$original_etag" >> "$GITHUB_ENV"
 
-          az storage blob copy start --account-name "$account" \
-            --destination-container "$container" --destination-blob "$backup" \
-            --source-container "$container" --source-blob "$production" \
-            --auth-mode login --output none
-
-          for _ in {1..60}; do
-            status=$(az storage blob show --account-name "$account" \
-              --container-name "$container" --name "$backup" \
-              --auth-mode login --query properties.copy.status -o tsv)
-            if [ "$status" = success ]; then break; fi
-            if [ "$status" = failed ] || [ "$status" = aborted ]; then exit 1; fi
-            sleep 2
-          done
-          if [ "$status" != success ]; then echo 'Backup copy timed out'; exit 1; fi
-
           mkdir -p /tmp/chroma-backup-check
+          echo 'Downloading existing production snapshot for backup.'
           az storage blob download --account-name "$account" \
             --container-name "$container" --name "$production" \
             --file /tmp/chroma-backup-check/production.tar.gz \
             --auth-mode login --output none
+
+          # Do not back up bytes from a different production revision.
+          downloaded_etag=$(az storage blob show --account-name "$account" \
+            --container-name "$container" --name "$production" \
+            --auth-mode login --query properties.etag -o tsv)
+          if [ "$downloaded_etag" != "$original_etag" ]; then
+            echo 'Production changed during download; aborting.'
+            exit 1
+          fi
+
+          echo 'Uploading independent backup with Microsoft Entra authentication.'
+          az storage blob upload --account-name "$account" \
+            --container-name "$container" --name "$backup" \
+            --file /tmp/chroma-backup-check/production.tar.gz \
+            --auth-mode login --overwrite false --output none
+
+          echo 'Downloading backup to verify bytes.'
           az storage blob download --account-name "$account" \
             --container-name "$container" --name "$backup" \
             --file /tmp/chroma-backup-check/backup.tar.gz \
