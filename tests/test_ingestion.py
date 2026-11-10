@@ -1,6 +1,6 @@
 
 from unittest.mock import MagicMock, patch
-
+import ingestion_engine
 import ingest_unity
 
 
@@ -24,12 +24,12 @@ def test_ingest_new_document(tmp_path):
     }
 
     with patch.object(ingest_unity, "DATA_DIR", tmp_path), \
-        patch.object(
-            ingest_unity,
-            "HuggingFaceEmbeddings",
-            return_value=fake_embeddings
-        ), \
-        patch.object(ingest_unity, "Chroma", return_value=fake_db):
+     patch.object(
+         ingestion_engine,
+         "HuggingFaceEmbeddings",
+         return_value=fake_embeddings
+     ), \
+     patch.object(ingestion_engine, "Chroma", return_value=fake_db):
 
         ingest_unity.ingest_documents()
 
@@ -76,12 +76,12 @@ def test_ingest_unchanged_document(tmp_path):
     fake_embeddings = MagicMock()
 
     with patch.object(ingest_unity, "DATA_DIR", tmp_path), \
-        patch.object(
-            ingest_unity,
-            "HuggingFaceEmbeddings",
-            return_value=fake_embeddings
-        ), \
-        patch.object(ingest_unity, "Chroma", return_value=fake_db):
+     patch.object(
+         ingestion_engine,
+         "HuggingFaceEmbeddings",
+         return_value=fake_embeddings
+     ), \
+     patch.object(ingestion_engine, "Chroma", return_value=fake_db):
 
         ingest_unity.ingest_documents()
 
@@ -144,12 +144,12 @@ def test_ingest_updated_document(tmp_path):
     )
 
     with patch.object(ingest_unity, "DATA_DIR", tmp_path), \
-         patch.object(
-             ingest_unity,
-             "HuggingFaceEmbeddings",
-             return_value=fake_embeddings
-         ), \
-         patch.object(ingest_unity, "Chroma", return_value=fake_db):
+     patch.object(
+         ingestion_engine,
+         "HuggingFaceEmbeddings",
+         return_value=fake_embeddings
+     ), \
+     patch.object(ingestion_engine, "Chroma", return_value=fake_db):
 
         ingest_unity.ingest_documents()
 
@@ -202,12 +202,12 @@ def test_embedding_failure_preserves_old_chunks(tmp_path):
     )
 
     with patch.object(ingest_unity, "DATA_DIR", tmp_path), \
-         patch.object(
-             ingest_unity,
-             "HuggingFaceEmbeddings",
-             return_value=fake_embeddings
-         ), \
-         patch.object(ingest_unity, "Chroma", return_value=fake_db):
+     patch.object(
+         ingestion_engine,
+         "HuggingFaceEmbeddings",
+         return_value=fake_embeddings
+     ), \
+     patch.object(ingestion_engine, "Chroma", return_value=fake_db):
 
         # Verify the failure is reported
         with pytest.raises(RuntimeError, match="Embedding generation failed"):
