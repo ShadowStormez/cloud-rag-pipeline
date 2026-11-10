@@ -1,17 +1,31 @@
-from unittest.mock import MagicMock
+import sys
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from main import QuestionRequest, build_retriever
+# Prevent real embeddings, Chroma, and Groq clients from initializing
+# when main.py is imported during test collection.
+with (
+    patch(
+        "langchain_huggingface.HuggingFaceEmbeddings",
+        return_value=MagicMock(),
+    ),
+    patch(
+        "langchain_community.vectorstores.Chroma",
+        return_value=MagicMock(),
+    ),
+    patch(
+        "langchain_groq.ChatGroq",
+        return_value=MagicMock(),
+    ),
+):
+    from main import QuestionRequest, build_retriever
 
 
-@pytest.mark.parametrize(
-    "engine",
-    ["unity", "godot", "unreal"],
-)
+@pytest.mark.parametrize("engine", ["unity", "godot", "unreal"])
 def test_engine_filter(engine, monkeypatch):
     mock_db = MagicMock()
-    monkeypatch.setattr("main.db", mock_db)
+    monkeypatch.setattr(sys.modules["main"], "db", mock_db)
 
     build_retriever(engine)
 
@@ -25,7 +39,7 @@ def test_engine_filter(engine, monkeypatch):
 
 def test_auto_search_has_no_filter(monkeypatch):
     mock_db = MagicMock()
-    monkeypatch.setattr("main.db", mock_db)
+    monkeypatch.setattr(sys.modules["main"], "db", mock_db)
 
     build_retriever("auto")
 
