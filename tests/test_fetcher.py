@@ -22,7 +22,7 @@ def test_fetch_new_document(tmp_path):
     with patch.object(fetch_unity, "OUTPUT_DIR", tmp_path):
 
         # Replace requests.get() with a fake response
-        with patch("fetch_unity.requests.get", return_value=fake_response):
+        with patch("fetch_unity.requests.Session.get", return_value=fake_response):
 
             fetch_unity.fetch_documentation(
                 "Rigidbody2D",
@@ -58,7 +58,7 @@ def test_fetch_unchanged_document(tmp_path):
     fake_response.text = html
 
     with patch.object(fetch_unity, "OUTPUT_DIR", tmp_path):
-        with patch("fetch_unity.requests.get", return_value=fake_response):
+        with patch("fetch_unity.requests.Session.get", return_value=fake_response):
 
             # Monitor whether the file is rewritten
             with patch.object(
@@ -101,7 +101,7 @@ def test_fetch_updated_document(tmp_path):
     # Replace the real output directory and HTTP request
     with patch.object(fetch_unity, "OUTPUT_DIR", tmp_path):
         with patch(
-            "fetch_unity.requests.get",
+            "fetch_unity.requests.Session.get",
             return_value=fake_response
         ):
             result = fetch_unity.fetch_documentation(
