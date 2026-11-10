@@ -4,6 +4,8 @@ name: Publish and Deploy Docker Image
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "data/unity/**"
   workflow_dispatch:
 
 permissions:
@@ -14,6 +16,9 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    concurrency:
+      group: cloud-rag-azure-deployment
+      cancel-in-progress: false
 
     steps:
       - name: Checkout repository

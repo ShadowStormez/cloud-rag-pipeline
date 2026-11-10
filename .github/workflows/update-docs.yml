@@ -11,9 +11,16 @@ permissions:
   contents: write
   id-token: write
 
+concurrency:
+  group: cloud-rag-documentation-update
+  cancel-in-progress: false
+
 jobs:
   update-documentation:
     runs-on: ubuntu-latest
+
+    outputs:
+      docs_changed: ${{ steps.docs_changes.outputs.changed }}
 
     steps:
       - name: Checkout repository
@@ -38,6 +45,17 @@ jobs:
       - name: Fetch Unity documentation
         run: |
           python fetch_unity.py
+
+      - name: Detect documentation changes
+        id: docs_changes
+        run: |
+          if [ -n "$(git status --porcelain -- data/unity/)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Unity documentation has changed."
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No Unity documentation changes detected."
+          fi
           
       - name: Install test dependencies
         run: |
@@ -51,12 +69,14 @@ jobs:
           python restore_chroma.py
 
       - name: Incrementally ingest Unity documentation
+        if: steps.docs_changes.outputs.changed == 'true'
         env:
           CHROMA_DB_DIR: ./chroma_unity_test
         run: |
           python ingest_unity.py
 
       - name: Create updated Chroma snapshot
+        if: steps.docs_changes.outputs.changed == 'true'
         env:
           CHROMA_DB_DIR: ./chroma_unity_test
           CHROMA_SNAPSHOT_PATH: ./chroma-snapshot.tar.gz
@@ -64,6 +84,7 @@ jobs:
           python snapshot_chroma.py
 
       - name: Validate updated Chroma snapshot
+        if: steps.docs_changes.outputs.changed == 'true'
         run: |
           python - <<'PY'
           import tarfile
@@ -111,6 +132,62 @@ jobs:
         run: |
           python -m pytest tests/ -v
 
+      - name: Upload validated snapshot artifact
+        if: steps.docs_changes.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: validated-chroma-snapshot
+          path: chroma-snapshot.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload updated documentation artifact
+        if: steps.docs_changes.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: updated-unity-documentation
+          path: data/
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy-documentation:
+    name: Deploy updated documentation
+    needs: update-documentation
+    if: needs.update-documentation.outputs.docs_changed == 'true'
+    runs-on: ubuntu-latest
+
+    concurrency:
+      group: cloud-rag-azure-deployment
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Download validated Chroma snapshot
+        uses: actions/download-artifact@v4
+        with:
+          name: validated-chroma-snapshot
+          path: .
+
+      - name: Download updated Unity documentation
+        uses: actions/download-artifact@v4
+        with:
+          name: updated-unity-documentation
+          path: /tmp/updated-docs
+
+      - name: Synchronize documentation into checkout
+        run: |
+          test -d /tmp/updated-docs/unity
+          mkdir -p data/unity
+          rsync -a --delete /tmp/updated-docs/unity/ data/unity/
+
       - name: Upload validated snapshot to Azure staging
         run: |
           az storage blob upload \
@@ -121,16 +198,241 @@ jobs:
             --auth-mode login \
             --overwrite true
 
+      - name: Back up production Chroma snapshot
+        run: |
+          backup_name="chroma-unity-backup-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.tar.gz"
+
+          echo "BACKUP_BLOB_NAME=$backup_name" >> "$GITHUB_ENV"
+
+          az storage blob copy start \
+            --account-name cloudragstorearya26 \
+            --destination-container chroma-snapshots \
+            --destination-blob "$backup_name" \
+            --source-container chroma-snapshots \
+            --source-blob chroma-unity-snapshot-clean.tar.gz \
+            --auth-mode login
+
+
+      - name: Verify production backup
+        run: |
+          for attempt in {1..30}; do
+            status=$(az storage blob show \
+              --account-name cloudragstorearya26 \
+              --container-name chroma-snapshots \
+              --name "$BACKUP_BLOB_NAME" \
+              --auth-mode login \
+              --query "properties.copy.status" \
+              --output tsv)
+
+            echo "Backup status: $status"
+
+            if [ "$status" = "success" ]; then
+              echo "Production backup completed successfully."
+              exit 0
+            fi
+
+            if [ "$status" = "failed" ] || [ "$status" = "aborted" ]; then
+              echo "Production backup failed."
+              exit 1
+            fi
+
+            sleep 2
+          done
+
+          echo "Timed out waiting for production backup."
+          exit 1
+
+      - name: Verify backup integrity
+        run: |
+          mkdir -p /tmp/chroma-backup-check
+
+          az storage blob download \
+            --account-name cloudragstorearya26 \
+            --container-name chroma-snapshots \
+            --name chroma-unity-snapshot-clean.tar.gz \
+            --file /tmp/chroma-backup-check/production.tar.gz \
+            --auth-mode login
+
+          az storage blob download \
+            --account-name cloudragstorearya26 \
+            --container-name chroma-snapshots \
+            --name "$BACKUP_BLOB_NAME" \
+            --file /tmp/chroma-backup-check/backup.tar.gz \
+            --auth-mode login
+
+          echo "Production SHA-256:"
+          sha256sum /tmp/chroma-backup-check/production.tar.gz
+
+          echo "Backup SHA-256:"
+          sha256sum /tmp/chroma-backup-check/backup.tar.gz
+
+          if ! cmp -s \
+            /tmp/chroma-backup-check/production.tar.gz \
+            /tmp/chroma-backup-check/backup.tar.gz; then
+            echo "ERROR: Backup differs from production!"
+            exit 1
+          fi
+
+          echo "Backup integrity verified successfully."
+
+      - name: Promote staging snapshot to production
+        run: |
+          az storage blob copy start \
+            --account-name cloudragstorearya26 \
+            --destination-container chroma-snapshots \
+            --destination-blob chroma-unity-snapshot-clean.tar.gz \
+            --source-container chroma-snapshots \
+            --source-blob chroma-unity-snapshot-staging.tar.gz \
+            --auth-mode login
+
+      - name: Verify production snapshot promotion
+        run: |
+          for attempt in {1..30}; do
+            status=$(az storage blob show \
+              --account-name cloudragstorearya26 \
+              --container-name chroma-snapshots \
+              --name chroma-unity-snapshot-clean.tar.gz \
+              --auth-mode login \
+              --query "properties.copy.status" \
+              --output tsv)
+
+            echo "Production copy status: $status"
+
+            if [ "$status" = "success" ]; then
+              echo "Production snapshot promotion completed."
+              exit 0
+            fi
+
+            if [ "$status" = "failed" ] || [ "$status" = "aborted" ]; then
+              echo "ERROR: Production snapshot promotion failed."
+              exit 1
+            fi
+
+            sleep 2
+          done
+
+          echo "ERROR: Timed out waiting for production promotion."
+          exit 1
+
+      - name: Verify promoted snapshot integrity
+        run: |
+          az storage blob download \
+            --account-name cloudragstorearya26 \
+            --container-name chroma-snapshots \
+            --name chroma-unity-snapshot-clean.tar.gz \
+            --file /tmp/chroma-promoted.tar.gz \
+            --auth-mode login
+
+          echo "Validated snapshot SHA-256:"
+          sha256sum chroma-snapshot.tar.gz
+
+          echo "Production snapshot SHA-256:"
+          sha256sum /tmp/chroma-promoted.tar.gz
+
+          if ! cmp -s \
+            chroma-snapshot.tar.gz \
+            /tmp/chroma-promoted.tar.gz; then
+            echo "ERROR: Production snapshot differs from validated snapshot!"
+            exit 1
+          fi
+
+          echo "Production snapshot integrity verified successfully."
+
+      - name: Deploy updated Chroma snapshot
+        run: |
+          deploy_version="docs-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
+          echo "Deploying snapshot version: $deploy_version"
+
+          az containerapp update \
+            --name cloud-rag-api \
+            --resource-group rg-cloud-rag-pipeline \
+            --set-env-vars DEPLOY_VERSION="$deploy_version" \
+            --output none
+
+      - name: Verify deployed API health
+        run: |
+          api_url="https://cloud-rag-api.icypebble-38736748.swedencentral.azurecontainerapps.io/health"
+
+          for attempt in {1..30}; do
+            echo "Health check attempt $attempt/30"
+
+            if curl --fail --silent --show-error \
+              --max-time 15 \
+              "$api_url"; then
+              echo ""
+              echo "API health check passed."
+              exit 0
+            fi
+
+            echo "API not ready yet. Retrying in 10 seconds..."
+            sleep 10
+          done
+
+          echo "ERROR: API did not become healthy."
+          exit 1
+
+      - name: Verify deployed RAG functionality
+        run: |
+          python - <<'PY'
+          import json
+          import time
+          import urllib.request
+
+          url = "https://cloud-rag-api.icypebble-38736748.swedencentral.azurecontainerapps.io/ask"
+
+          payload = json.dumps({
+              "question": "What does SpriteRenderer do in Unity?"
+          }).encode("utf-8")
+
+          for attempt in range(1, 4):
+              print(f"RAG test attempt {attempt}/3", flush=True)
+
+              try:
+                  request = urllib.request.Request(
+                      url,
+                      data=payload,
+                      headers={"Content-Type": "application/json"},
+                      method="POST",
+                  )
+
+                  with urllib.request.urlopen(request, timeout=90) as response:
+                      result = json.load(response)
+
+                  answer = result.get("answer")
+                  sources = result.get("sources", [])
+
+                  if not isinstance(answer, str) or not answer.strip():
+                      raise RuntimeError("RAG response contains no answer")
+
+                  if not any(
+                      "SpriteRenderer" in source.get("metadata", {}).get("source", "")
+                      for source in sources
+                  ):
+                      raise RuntimeError("Expected Unity documentation was not retrieved")
+
+                  print("RAG functionality verified successfully.")
+                  break
+
+              except Exception as error:
+                  print(f"RAG verification failed: {error}", flush=True)
+
+                  if attempt == 3:
+                      raise
+
+                  time.sleep(10)
+          PY
+
       - name: Commit documentation updates
         run: |
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-            git add data/unity/
+          git add -A -- data/unity/
 
-            if git diff --cached --quiet; then
-            echo "No documentation changes detected."
-            else
+          if git diff --cached --quiet; then
+            echo "No documentation changes to commit."
+          else
             git commit -m "Automatically update Unity documentation"
-            git push
-            fi
+            git push origin HEAD:main
+          fi
