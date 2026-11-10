@@ -10,7 +10,10 @@ from azure.storage.blob import BlobServiceClient
 
 STORAGE_ACCOUNT = "cloudragstorearya26"
 CONTAINER_NAME = "chroma-snapshots"
-BLOB_NAME = "chroma-unity-snapshot-clean.tar.gz"
+BLOB_NAME = os.getenv(
+    "CHROMA_BLOB_NAME",
+    "chroma-unity-snapshot-clean.tar.gz",
+)
 
 # Use a separate directory during our first test.
 RESTORE_DIR = Path(
