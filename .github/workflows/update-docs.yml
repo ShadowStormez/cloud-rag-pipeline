@@ -1,11 +1,17 @@
 
-name: Update Unity Documentation
+name: Update Game Engine Documentation
 
 on:
   schedule:
     - cron: "0 3 * * *"
 
   workflow_dispatch:
+    inputs:
+      bootstrap:
+        description: "Force multi-engine database snapshot upgrade"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write
@@ -21,6 +27,7 @@ jobs:
 
     outputs:
       docs_changed: ${{ steps.docs_changes.outputs.changed }}
+      should_deploy: ${{ steps.docs_changes.outputs.changed == 'true' || inputs.bootstrap == true }}
 
     steps:
       - name: Checkout repository
@@ -42,21 +49,22 @@ jobs:
         run: |
           python -m pip install requests beautifulsoup4
 
-      - name: Fetch Unity documentation
+      - name: Fetch game engine documentation
         run: |
           python fetch_unity.py
+          python fetch_engine_docs.py
 
       - name: Detect documentation changes
         id: docs_changes
         run: |
-          if [ -n "$(git status --porcelain -- data/unity/)" ]; then
+          if [ -n "$(git status --porcelain -- data/unity/ data/godot/ data/unreal/)" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "Unity documentation has changed."
+            echo "Game engine documentation has changed."
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "No Unity documentation changes detected."
+            echo "No game engine documentation changes detected."
           fi
-          
+
       - name: Install test dependencies
         run: |
           python -m pip install -r requirements.txt
@@ -68,15 +76,27 @@ jobs:
         run: |
           python restore_chroma.py
 
-      - name: Incrementally ingest Unity documentation
-        if: steps.docs_changes.outputs.changed == 'true'
+      - name: Migrate legacy Unity metadata
+        env:
+          CHROMA_DB_DIR: ./chroma_unity_test
+        run: |
+          python migrate_metadata.py
+
+      - name: Incrementally ingest all game engines
         env:
           CHROMA_DB_DIR: ./chroma_unity_test
         run: |
           python ingest_unity.py
+          python ingest_engine_docs.py
+
+      - name: Validate multi-engine database
+        env:
+          CHROMA_DB_DIR: ./chroma_unity_test
+        run: |
+          python validate_chroma.py
 
       - name: Create updated Chroma snapshot
-        if: steps.docs_changes.outputs.changed == 'true'
+        if: steps.docs_changes.outputs.changed == 'true' || inputs.bootstrap == true
         env:
           CHROMA_DB_DIR: ./chroma_unity_test
           CHROMA_SNAPSHOT_PATH: ./chroma-snapshot.tar.gz
@@ -84,7 +104,7 @@ jobs:
           python snapshot_chroma.py
 
       - name: Validate updated Chroma snapshot
-        if: steps.docs_changes.outputs.changed == 'true'
+        if: steps.docs_changes.outputs.changed == 'true' || inputs.bootstrap == true
         run: |
           python - <<'PY'
           import tarfile
@@ -125,7 +145,30 @@ jobs:
               if total_chunks == 0:
                   raise RuntimeError("Snapshot contains no document chunks")
 
+              collection = client.get_collection("langchain")
+              records = collection.get(include=["metadatas"])
+
+              from collections import Counter
+
+              counts = Counter(
+                  metadata.get("source_type", "legacy")
+                  for metadata in records["metadatas"]
+              )
+
+              required_engines = {"unity", "godot", "unreal"}
+
+              missing = required_engines - {
+                  engine for engine, count in counts.items()
+                  if count > 0
+              }
+
+              if missing:
+                  raise RuntimeError(
+                      f"Snapshot missing engines: {sorted(missing)}"
+                  )
+
               print(f"Snapshot validation passed: {total_chunks} chunks")
+              print(f"Engine distribution: {dict(counts)}")
           PY
 
       - name: Run automated tests
@@ -133,7 +176,7 @@ jobs:
           python -m pytest tests/ -v
 
       - name: Upload validated snapshot artifact
-        if: steps.docs_changes.outputs.changed == 'true'
+        if: steps.docs_changes.outputs.changed == 'true' || inputs.bootstrap == true
         uses: actions/upload-artifact@v4
         with:
           name: validated-chroma-snapshot
@@ -142,10 +185,10 @@ jobs:
           retention-days: 1
 
       - name: Upload updated documentation artifact
-        if: steps.docs_changes.outputs.changed == 'true'
+        if: steps.docs_changes.outputs.changed == 'true' || inputs.bootstrap == true
         uses: actions/upload-artifact@v4
         with:
-          name: updated-unity-documentation
+          name: updated-game-engine-documentation
           path: data/
           if-no-files-found: error
           retention-days: 1
@@ -153,7 +196,7 @@ jobs:
   deploy-documentation:
     name: Deploy updated documentation
     needs: update-documentation
-    if: needs.update-documentation.outputs.docs_changed == 'true'
+    if: needs.update-documentation.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
 
     concurrency:
@@ -170,177 +213,152 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Capture production image and verify multi-engine API support
+        run: |
+          set -euo pipefail
+          previous_image=$(az containerapp show \
+            --name cloud-rag-api \
+            --resource-group rg-cloud-rag-pipeline \
+            --query 'properties.template.containers[0].image' -o tsv)
+          test -n "$previous_image"
+          echo "PREVIOUS_IMAGE=$previous_image" >> "$GITHUB_ENV"
+          previous_deploy_version=$(az containerapp show \
+            --name cloud-rag-api \
+            --resource-group rg-cloud-rag-pipeline \
+            --query "properties.template.containers[0].env[?name=='DEPLOY_VERSION'].value | [0]" \
+            -o tsv)
+          test -n "$previous_deploy_version"
+
+          echo "PREVIOUS_DEPLOY_VERSION=$previous_deploy_version" >> "$GITHUB_ENV"
+          echo "Previous deployment version: $previous_deploy_version"
+
+          # Fail safely if the image has not been upgraded to multi-engine support.
+          # A 200 response is not sufficient: old APIs may ignore the engine field.
+          python - <<'PYCODE'
+          import json, urllib.request
+          url = 'https://cloud-rag-api.icypebble-38736748.swedencentral.azurecontainerapps.io/openapi.json'
+          with urllib.request.urlopen(url, timeout=90) as response:
+              spec = json.load(response)
+          schemas = spec.get('components', {}).get('schemas', {})
+          request_schema = schemas.get('QuestionRequest', {})
+          props = request_schema.get('properties', {})
+          engine = props.get('engine', {})
+          if not engine:
+              raise RuntimeError('Production API lacks engine selection. Deploy new image first.')
+          print('Production API exposes engine selection.')
+          PYCODE
+
       - name: Download validated Chroma snapshot
         uses: actions/download-artifact@v4
         with:
           name: validated-chroma-snapshot
           path: .
 
-      - name: Download updated Unity documentation
+      - name: Download updated game engine documentation
         uses: actions/download-artifact@v4
         with:
-          name: updated-unity-documentation
+          name: updated-game-engine-documentation
           path: /tmp/updated-docs
 
       - name: Synchronize documentation into checkout
         run: |
-          test -d /tmp/updated-docs/unity
-          mkdir -p data/unity
-          rsync -a --delete /tmp/updated-docs/unity/ data/unity/
+          for engine in unity godot unreal; do
+            test -d "/tmp/updated-docs/$engine"
+            mkdir -p "data/$engine"
+            rsync -a --delete "/tmp/updated-docs/$engine/" "data/$engine/"
+          done
 
-      - name: Upload validated snapshot to Azure staging
+      - name: Capture production Blob state and create verified backup
+        id: verify_backup
         run: |
+          set -euo pipefail
+          account=cloudragstorearya26
+          container=chroma-snapshots
+          production=chroma-unity-snapshot-clean.tar.gz
+          backup="chroma-unity-backup-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.tar.gz"
+          echo "BACKUP_BLOB_NAME=$backup" >> "$GITHUB_ENV"
+
+          # Capture ETag before backup; reject concurrent modifications.
+          original_etag=$(az storage blob show --account-name "$account" \
+            --container-name "$container" --name "$production" \
+            --auth-mode login --query properties.etag -o tsv)
+          test -n "$original_etag"
+          echo "ORIGINAL_ETAG=$original_etag" >> "$GITHUB_ENV"
+
+          az storage blob copy start --account-name "$account" \
+            --destination-container "$container" --destination-blob "$backup" \
+            --source-container "$container" --source-blob "$production" \
+            --auth-mode login --output none
+
+          for _ in {1..60}; do
+            status=$(az storage blob show --account-name "$account" \
+              --container-name "$container" --name "$backup" \
+              --auth-mode login --query properties.copy.status -o tsv)
+            if [ "$status" = success ]; then break; fi
+            if [ "$status" = failed ] || [ "$status" = aborted ]; then exit 1; fi
+            sleep 2
+          done
+          if [ "$status" != success ]; then echo 'Backup copy timed out'; exit 1; fi
+
+          mkdir -p /tmp/chroma-backup-check
+          az storage blob download --account-name "$account" \
+            --container-name "$container" --name "$production" \
+            --file /tmp/chroma-backup-check/production.tar.gz \
+            --auth-mode login --output none
+          az storage blob download --account-name "$account" \
+            --container-name "$container" --name "$backup" \
+            --file /tmp/chroma-backup-check/backup.tar.gz \
+            --auth-mode login --output none
+          cmp /tmp/chroma-backup-check/production.tar.gz /tmp/chroma-backup-check/backup.tar.gz
+          current_etag=$(az storage blob show --account-name "$account" \
+            --container-name "$container" --name "$production" \
+            --auth-mode login --query properties.etag -o tsv)
+          if [ "$current_etag" != "$original_etag" ]; then
+            echo 'Production changed while backup was being created; aborting.'
+            exit 1
+          fi
+          echo 'verified=true' >> "$GITHUB_OUTPUT"
+
+      - name: Promote validated snapshot with conditional upload
+        id: promote_snapshot
+        run: |
+          set -euo pipefail
+          # Direct conditional upload avoids asynchronous copy-ID ownership races.
+          # Mark attempt first so rollback can inspect whether the upload took effect.
+          echo 'attempted=true' >> "$GITHUB_OUTPUT"
           az storage blob upload \
             --account-name cloudragstorearya26 \
             --container-name chroma-snapshots \
-            --name chroma-unity-snapshot-staging.tar.gz \
-            --file chroma-snapshot.tar.gz \
-            --auth-mode login \
-            --overwrite true
-
-      - name: Back up production Chroma snapshot
-        run: |
-          backup_name="chroma-unity-backup-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.tar.gz"
-
-          echo "BACKUP_BLOB_NAME=$backup_name" >> "$GITHUB_ENV"
-
-          az storage blob copy start \
-            --account-name cloudragstorearya26 \
-            --destination-container chroma-snapshots \
-            --destination-blob "$backup_name" \
-            --source-container chroma-snapshots \
-            --source-blob chroma-unity-snapshot-clean.tar.gz \
-            --auth-mode login
-
-
-      - name: Verify production backup
-        run: |
-          for attempt in {1..30}; do
-            status=$(az storage blob show \
-              --account-name cloudragstorearya26 \
-              --container-name chroma-snapshots \
-              --name "$BACKUP_BLOB_NAME" \
-              --auth-mode login \
-              --query "properties.copy.status" \
-              --output tsv)
-
-            echo "Backup status: $status"
-
-            if [ "$status" = "success" ]; then
-              echo "Production backup completed successfully."
-              exit 0
-            fi
-
-            if [ "$status" = "failed" ] || [ "$status" = "aborted" ]; then
-              echo "Production backup failed."
-              exit 1
-            fi
-
-            sleep 2
-          done
-
-          echo "Timed out waiting for production backup."
-          exit 1
-
-      - name: Verify backup integrity
-        run: |
-          mkdir -p /tmp/chroma-backup-check
-
-          az storage blob download \
-            --account-name cloudragstorearya26 \
-            --container-name chroma-snapshots \
             --name chroma-unity-snapshot-clean.tar.gz \
-            --file /tmp/chroma-backup-check/production.tar.gz \
-            --auth-mode login
+            --file chroma-snapshot.tar.gz \
+            --auth-mode login --overwrite true \
+            --if-match "$ORIGINAL_ETAG" --output none
+          echo 'completed=true' >> "$GITHUB_OUTPUT"
 
-          az storage blob download \
-            --account-name cloudragstorearya26 \
-            --container-name chroma-snapshots \
-            --name "$BACKUP_BLOB_NAME" \
-            --file /tmp/chroma-backup-check/backup.tar.gz \
-            --auth-mode login
-
-          echo "Production SHA-256:"
-          sha256sum /tmp/chroma-backup-check/production.tar.gz
-
-          echo "Backup SHA-256:"
-          sha256sum /tmp/chroma-backup-check/backup.tar.gz
-
-          if ! cmp -s \
-            /tmp/chroma-backup-check/production.tar.gz \
-            /tmp/chroma-backup-check/backup.tar.gz; then
-            echo "ERROR: Backup differs from production!"
-            exit 1
-          fi
-
-          echo "Backup integrity verified successfully."
-
-      - name: Promote staging snapshot to production
-        run: |
-          az storage blob copy start \
-            --account-name cloudragstorearya26 \
-            --destination-container chroma-snapshots \
-            --destination-blob chroma-unity-snapshot-clean.tar.gz \
-            --source-container chroma-snapshots \
-            --source-blob chroma-unity-snapshot-staging.tar.gz \
-            --auth-mode login
-
-      - name: Verify production snapshot promotion
-        run: |
-          for attempt in {1..30}; do
-            status=$(az storage blob show \
-              --account-name cloudragstorearya26 \
-              --container-name chroma-snapshots \
-              --name chroma-unity-snapshot-clean.tar.gz \
-              --auth-mode login \
-              --query "properties.copy.status" \
-              --output tsv)
-
-            echo "Production copy status: $status"
-
-            if [ "$status" = "success" ]; then
-              echo "Production snapshot promotion completed."
-              exit 0
-            fi
-
-            if [ "$status" = "failed" ] || [ "$status" = "aborted" ]; then
-              echo "ERROR: Production snapshot promotion failed."
-              exit 1
-            fi
-
-            sleep 2
-          done
-
-          echo "ERROR: Timed out waiting for production promotion."
-          exit 1
-
-      - name: Verify promoted snapshot integrity
-        run: |
+          # Capture the new ETag only after checking that the content matches.
           az storage blob download \
             --account-name cloudragstorearya26 \
             --container-name chroma-snapshots \
             --name chroma-unity-snapshot-clean.tar.gz \
             --file /tmp/chroma-promoted.tar.gz \
-            --auth-mode login
-
-          echo "Validated snapshot SHA-256:"
-          sha256sum chroma-snapshot.tar.gz
-
-          echo "Production snapshot SHA-256:"
-          sha256sum /tmp/chroma-promoted.tar.gz
-
-          if ! cmp -s \
-            chroma-snapshot.tar.gz \
-            /tmp/chroma-promoted.tar.gz; then
-            echo "ERROR: Production snapshot differs from validated snapshot!"
-            exit 1
-          fi
-
-          echo "Production snapshot integrity verified successfully."
+            --auth-mode login --output none
+          cmp chroma-snapshot.tar.gz /tmp/chroma-promoted.tar.gz
+          new_etag=$(az storage blob show \
+            --account-name cloudragstorearya26 \
+            --container-name chroma-snapshots \
+            --name chroma-unity-snapshot-clean.tar.gz \
+            --auth-mode login --query properties.etag -o tsv)
+          test -n "$new_etag"
+          echo "PROMOTED_ETAG=$new_etag" >> "$GITHUB_ENV"
+          echo 'Snapshot promoted and verified.'
 
       - name: Deploy updated Chroma snapshot
+        id: deploy_snapshot
         run: |
+          set -euo pipefail
           deploy_version="docs-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "TARGET_DEPLOY_VERSION=$deploy_version" >> "$GITHUB_ENV"
+          echo 'attempted=true' >> "$GITHUB_OUTPUT"
 
           echo "Deploying snapshot version: $deploy_version"
 
@@ -374,65 +392,163 @@ jobs:
 
       - name: Verify deployed RAG functionality
         run: |
-          python - <<'PY'
+          python - <<'PYCODE'
           import json
           import time
           import urllib.request
 
           url = "https://cloud-rag-api.icypebble-38736748.swedencentral.azurecontainerapps.io/ask"
 
-          payload = json.dumps({
-              "question": "What does SpriteRenderer do in Unity?"
-          }).encode("utf-8")
+          questions = {
+              "unity": "What does SpriteRenderer do?",
+              "godot": "How does RigidBody2D work?",
+              "unreal": "What is an Actor?",
+          }
 
-          for attempt in range(1, 4):
-              print(f"RAG test attempt {attempt}/3", flush=True)
+          for engine, question in questions.items():
+              payload = json.dumps({
+                  "question": question,
+                  "engine": engine,
+              }).encode("utf-8")
 
-              try:
-                  request = urllib.request.Request(
-                      url,
-                      data=payload,
-                      headers={"Content-Type": "application/json"},
-                      method="POST",
-                  )
+              for attempt in range(1, 4):
+                  try:
+                      request = urllib.request.Request(
+                          url,
+                          data=payload,
+                          headers={"Content-Type": "application/json"},
+                          method="POST",
+                      )
 
-                  with urllib.request.urlopen(request, timeout=90) as response:
-                      result = json.load(response)
+                      with urllib.request.urlopen(
+                          request, timeout=90
+                      ) as response:
+                          result = json.load(response)
 
-                  answer = result.get("answer")
-                  sources = result.get("sources", [])
+                      answer = result.get("answer")
+                      sources = result.get("sources", [])
 
-                  if not isinstance(answer, str) or not answer.strip():
-                      raise RuntimeError("RAG response contains no answer")
+                      if not isinstance(answer, str) or not answer.strip():
+                          raise RuntimeError("Empty RAG answer")
 
-                  if not any(
-                      "SpriteRenderer" in source.get("metadata", {}).get("source", "")
-                      for source in sources
-                  ):
-                      raise RuntimeError("Expected Unity documentation was not retrieved")
+                      if not sources:
+                          raise RuntimeError("No retrieved sources")
 
-                  print("RAG functionality verified successfully.")
-                  break
+                      for source in sources:
+                          metadata = source.get("metadata", {})
+                          if metadata.get("source_type") != engine:
+                              raise RuntimeError(
+                                  f"Incorrect source for {engine}: {metadata}"
+                              )
 
-              except Exception as error:
-                  print(f"RAG verification failed: {error}", flush=True)
+                      print(f"{engine.upper()} RAG verification passed!")
+                      break
 
-                  if attempt == 3:
-                      raise
+                  except Exception as error:
+                      print(
+                          f"{engine} attempt {attempt}/3 failed: {error}",
+                          flush=True,
+                      )
+                      if attempt == 3:
+                          raise
+                      time.sleep(10)
+          PYCODE
 
-                  time.sleep(10)
-          PY
+      - name: Roll back failed production deployment
+        if: ${{ failure() && steps.verify_backup.outputs.verified == 'true' && steps.promote_snapshot.outputs.attempted == 'true' }}
+        run: |
+          set -euo pipefail
+          account=cloudragstorearya26
+          container=chroma-snapshots
+          production=chroma-unity-snapshot-clean.tar.gz
+          backup_file=/tmp/chroma-backup-check/backup.tar.gz
+          test -s "$backup_file"
+          test -n "${PREVIOUS_IMAGE:-}"
+          test -n "${PREVIOUS_DEPLOY_VERSION:-}"
+          test -n "${ORIGINAL_ETAG:-}"
+
+          # Do not roll back a different image or a newer deployment's revision.
+          current_image=$(az containerapp show --name cloud-rag-api \
+            --resource-group rg-cloud-rag-pipeline \
+            --query 'properties.template.containers[0].image' -o tsv)
+          current_version=$(az containerapp show --name cloud-rag-api \
+            --resource-group rg-cloud-rag-pipeline \
+            --query "properties.template.containers[0].env[?name=='DEPLOY_VERSION'].value | [0]" -o tsv)
+          if [ "$current_image" != "$PREVIOUS_IMAGE" ]; then
+            echo 'Container image changed since this run began; manual recovery required.'
+            exit 1
+          fi
+          if [ "$current_version" != "$PREVIOUS_DEPLOY_VERSION" ] && \
+             [ "$current_version" != "${TARGET_DEPLOY_VERSION:-}" ]; then
+            echo 'Container revision changed since this run began; manual recovery required.'
+            exit 1
+          fi
+
+          current_etag=$(az storage blob show --account-name "$account" \
+            --container-name "$container" --name "$production" \
+            --auth-mode login --query properties.etag -o tsv)
+
+          if [ "$current_etag" = "$ORIGINAL_ETAG" ]; then
+            echo 'Production Blob unchanged; skipping Blob restoration.'
+          else
+            # Restore only if the production Blob still contains our snapshot.
+            az storage blob download --account-name "$account" \
+              --container-name "$container" --name "$production" \
+              --file /tmp/chroma-before-rollback.tar.gz \
+              --auth-mode login --output none
+            if ! cmp -s chroma-snapshot.tar.gz /tmp/chroma-before-rollback.tar.gz; then
+              echo 'Blob differs from this run snapshot; manual recovery required.'
+              exit 1
+            fi
+            az storage blob upload --account-name "$account" \
+              --container-name "$container" --name "$production" \
+              --file "$backup_file" --auth-mode login --overwrite true \
+              --if-match "$current_etag" --output none
+            az storage blob download --account-name "$account" \
+              --container-name "$container" --name "$production" \
+              --file /tmp/chroma-rollback-check.tar.gz \
+              --auth-mode login --output none
+            cmp "$backup_file" /tmp/chroma-rollback-check.tar.gz
+            echo 'Previous production Blob restored and verified.'
+          fi
+
+          # The docs deployment changes DEPLOY_VERSION, not the image.
+          # Restore the prior value only if our deployment changed it.
+          if [ "$current_version" = "${TARGET_DEPLOY_VERSION:-}" ]; then
+            az containerapp update --name cloud-rag-api \
+              --resource-group rg-cloud-rag-pipeline \
+              --set-env-vars DEPLOY_VERSION="$PREVIOUS_DEPLOY_VERSION" \
+              --output none
+            echo 'Previous deployment version restored.'
+          else
+            echo 'Previous deployment version is already configured.'
+          fi
+
+          # A new revision is necessary when the Blob was reverted but our
+          # updated revision was already running; an unchanged version means
+          # the original revision should still have its original local DB.
+          api_url='https://cloud-rag-api.icypebble-38736748.swedencentral.azurecontainerapps.io/health'
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error --max-time 15 "$api_url" > /dev/null; then
+              echo 'Rollback health check passed.'
+              exit 0
+            fi
+            echo "Rollback health check $attempt/30 failed."
+            sleep 10
+          done
+          echo 'Rollback health verification failed; inspect Azure manually.'
+          exit 1
 
       - name: Commit documentation updates
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add -A -- data/unity/
+          git add -A -- data/unity/ data/godot/ data/unreal/
 
           if git diff --cached --quiet; then
             echo "No documentation changes to commit."
           else
-            git commit -m "Automatically update Unity documentation"
+            git commit -m "Automatically update game engine documentation"
             git push origin HEAD:main
           fi

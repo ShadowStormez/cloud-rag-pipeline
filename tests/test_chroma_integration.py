@@ -1,7 +1,7 @@
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
-
+import ingestion_engine
 from langchain_community.vectorstores import Chroma
 from langchain_core.embeddings import FakeEmbeddings
 
@@ -35,16 +35,16 @@ def test_real_chroma_insertion():
         from unittest.mock import patch
 
         with patch.object(ingest_unity, "DATA_DIR", data_dir), \
-             patch.object(
-                 ingest_unity,
-                 "HuggingFaceEmbeddings",
-                 return_value=embeddings
-             ), \
-             patch.object(
-                 ingest_unity,
-                 "Chroma",
-                 return_value=db
-             ):
+            patch.object(
+                ingestion_engine,
+                "HuggingFaceEmbeddings",
+                return_value=embeddings
+            ), \
+            patch.object(
+                ingestion_engine,
+                "Chroma",
+                return_value=db
+            ):
 
             ingest_unity.ingest_documents()
 
