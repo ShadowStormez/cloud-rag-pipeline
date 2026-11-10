@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths-ignore:
       - "data/unity/**"
+      - "data/godot/**"
+      - "data/unreal/**"
   workflow_dispatch:
 
 permissions:
@@ -51,9 +53,59 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy image to Azure Container Apps
+      - name: Capture previous production image
         run: |
+          set -euo pipefail
+          previous_image=$(az containerapp show \
+            --name cloud-rag-api --resource-group rg-cloud-rag-pipeline \
+            --query 'properties.template.containers[0].image' -o tsv)
+          test -n "$previous_image"
+          echo "PREVIOUS_IMAGE=$previous_image" >> "$GITHUB_ENV"
+
+      - name: Deploy image to Azure Container Apps
+        id: deploy
+        run: |
+          set -euo pipefail
+          echo 'attempted=true' >> "$GITHUB_OUTPUT"
           az containerapp update \
             --name cloud-rag-api \
             --resource-group rg-cloud-rag-pipeline \
-            --image ghcr.io/shadowstormez/cloud-rag-pipeline:sha-${{ github.sha }}
+            --image ghcr.io/shadowstormez/cloud-rag-pipeline:sha-${{ github.sha }} \
+            --output none
+
+      - name: Verify deployed API
+        run: |
+          set -euo pipefail
+          url='https://cloud-rag-api.icypebble-38736748.swedencentral.azurecontainerapps.io'
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error --max-time 20 "$url/health" > /dev/null; then
+              echo 'API health check passed.'
+              exit 0
+            fi
+            echo "Health attempt $attempt/30 failed."
+            sleep 10
+          done
+          echo 'New image failed health verification.'
+          exit 1
+
+      - name: Restore previous image on failure
+        if: ${{ failure() && steps.deploy.outputs.attempted == 'true' }}
+        run: |
+          set -euo pipefail
+          test -n "${PREVIOUS_IMAGE:-}"
+          current_image=$(az containerapp show --name cloud-rag-api \
+            --resource-group rg-cloud-rag-pipeline \
+            --query 'properties.template.containers[0].image' -o tsv)
+          target_image='ghcr.io/shadowstormez/cloud-rag-pipeline:sha-${{ github.sha }}'
+          if [ "$current_image" = "$PREVIOUS_IMAGE" ]; then
+            echo 'Previous image already configured; no rollback necessary.'
+            exit 0
+          fi
+          if [ "$current_image" != "$target_image" ]; then
+            echo 'Image changed by another operation; manual recovery required.'
+            exit 1
+          fi
+          az containerapp update --name cloud-rag-api \
+            --resource-group rg-cloud-rag-pipeline \
+            --image "$PREVIOUS_IMAGE" --output none
+          echo 'Previous image restored; verify application health manually.'
