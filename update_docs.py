@@ -4,25 +4,26 @@ import sys
 
 def run_script(script_name):
     """Run a Python script and stop if it fails."""
-
     print(f"\nRunning {script_name}...", flush=True)
 
     subprocess.run(
         [sys.executable, script_name],
-        check=True
+        check=True,
     )
 
 
 def main():
-    print("Starting Unity documentation update...")
+    print("Starting multi-engine documentation update...")
 
-    # Step 1: Download documentation
+    # Fetch documentation from all supported engines
     run_script("fetch_unity.py")
+    run_script("fetch_engine_docs.py")
 
-    # Step 2: Update the vector database
+    # Incrementally update the shared Chroma database
     run_script("ingest_unity.py")
+    run_script("ingest_engine_docs.py")
 
-    print("\nDocumentation update completed successfully!")
+    print("\nMulti-engine documentation update completed!")
 
 
 if __name__ == "__main__":
