@@ -38,9 +38,22 @@ def fetch_documentation(name, url):
 
     print(f"\nFetching {name} documentation...")
 
-    # Download the HTML page
-    response = requests.get(url, timeout=20)
-    response.raise_for_status()
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
+
+    retry_strategy = Retry(
+        total=4,
+        backoff_factor=2,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET"],
+    )
+
+    with requests.Session() as session:
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        session.mount("https://", adapter)
+
+        response = session.get(url, timeout=30)
+        response.raise_for_status()
 
     text = extract_documentation(response.text)
 
