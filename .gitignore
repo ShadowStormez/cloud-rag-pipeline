@@ -15,5 +15,8 @@ chroma_unity_test/
 chroma_restore_test/
 chroma_atomic_test/
 
+# Generated Chroma database snapshots
+chroma-snapshot.tar.gz
+
 # macOS
 .DS_Store

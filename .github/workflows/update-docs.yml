@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   update-documentation:
@@ -17,6 +18,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -36,9 +44,82 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install pytest==9.2.0
 
+      - name: Restore existing Chroma database
+        env:
+          CHROMA_DB_DIR: ./chroma_unity_test
+        run: |
+          python restore_chroma.py
+
+      - name: Incrementally ingest Unity documentation
+        env:
+          CHROMA_DB_DIR: ./chroma_unity_test
+        run: |
+          python ingest_unity.py
+
+      - name: Create updated Chroma snapshot
+        env:
+          CHROMA_DB_DIR: ./chroma_unity_test
+          CHROMA_SNAPSHOT_PATH: ./chroma-snapshot.tar.gz
+        run: |
+          python snapshot_chroma.py
+
+      - name: Validate updated Chroma snapshot
+        run: |
+          python - <<'PY'
+          import tarfile
+          import tempfile
+          from pathlib import Path
+          import chromadb
+
+          with tempfile.TemporaryDirectory() as temp:
+              with tarfile.open("chroma-snapshot.tar.gz", "r:gz") as archive:
+                  members = archive.getmembers()
+
+                  for member in members:
+                      path = Path(member.name)
+                      if (
+                          path.is_absolute()
+                          or ".." in path.parts
+                          or not path.parts
+                          or path.parts[0] != "chroma_unity_test"
+                          or not (member.isfile() or member.isdir())
+                      ):
+                          raise ValueError(f"Invalid archive member: {member.name}")
+
+                  archive.extractall(temp, filter="data")
+
+              db_path = Path(temp) / "chroma_unity_test"
+
+              if not (db_path / "chroma.sqlite3").is_file():
+                  raise RuntimeError("Snapshot is missing chroma.sqlite3")
+
+              client = chromadb.PersistentClient(path=str(db_path))
+              collections = client.list_collections()
+
+              if not collections:
+                  raise RuntimeError("Snapshot contains no collections")
+
+              total_chunks = sum(c.count() for c in collections)
+
+              if total_chunks == 0:
+                  raise RuntimeError("Snapshot contains no document chunks")
+
+              print(f"Snapshot validation passed: {total_chunks} chunks")
+          PY
+
       - name: Run automated tests
         run: |
           python -m pytest tests/ -v
+
+      - name: Upload validated snapshot to Azure staging
+        run: |
+          az storage blob upload \
+            --account-name cloudragstorearya26 \
+            --container-name chroma-snapshots \
+            --name chroma-unity-snapshot-staging.tar.gz \
+            --file chroma-snapshot.tar.gz \
+            --auth-mode login \
+            --overwrite true
 
       - name: Commit documentation updates
         run: |
