@@ -76,12 +76,6 @@ jobs:
         run: |
           python restore_chroma.py
 
-      - name: Migrate legacy Unity metadata
-        env:
-          CHROMA_DB_DIR: ./chroma_unity_test
-        run: |
-          python migrate_metadata.py
-
       - name: Incrementally ingest all game engines
         env:
           CHROMA_DB_DIR: ./chroma_unity_test
