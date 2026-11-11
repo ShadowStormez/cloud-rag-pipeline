@@ -1,0 +1,129 @@
+
+.chat-composer {
+  width: 100%;
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  transition: border-color 160ms ease;
+}
+
+.chat-composer:focus-within {
+  border-color: #75503e;
+}
+
+.chat-composer__input {
+  display: block;
+  width: 100%;
+  min-height: 76px;
+  padding: 4px 2px 14px;
+  border: none;
+  outline: none;
+  resize: vertical;
+  background: transparent;
+  color: var(--cream);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.chat-composer__input::placeholder {
+  color: var(--muted);
+}
+
+.chat-composer__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.engine-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--background);
+}
+
+.engine-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cream);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.engine-option:hover:not(.engine-option--active) {
+  background: var(--surface-hover);
+}
+
+.engine-option--active {
+  background: var(--orange);
+  color: var(--cream);
+}
+
+.chat-composer__send {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border: none;
+  border-radius: 15px;
+  background: var(--orange);
+  color: var(--cream);
+  cursor: pointer;
+}
+
+.chat-composer__send:hover:not(:disabled) {
+  background: #ed6028;
+}
+
+.chat-composer__send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .chat-composer {
+    padding: 12px;
+    border-radius: 20px;
+  }
+
+  .chat-composer__footer {
+    align-items: flex-end;
+  }
+
+  .engine-selector {
+    border-radius: 16px;
+  }
+
+  .engine-option {
+    padding: 8px;
+    font-size: 11px;
+    gap: 5px;
+  }
+
+  .engine-option svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-composer,
+  .engine-option {
+    transition: none;
+  }
+}
