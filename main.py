@@ -1,7 +1,8 @@
 
 import os
 from typing import Literal
-
+import logging
+from fastapi import HTTPException
 from api import app
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
@@ -13,6 +14,7 @@ from langchain_classic.chains.combine_documents import create_stuff_documents_ch
 from langchain_core.prompts import ChatPromptTemplate
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 # Load expensive components once at application startup
 print("Loading database and LLM...")
@@ -72,27 +74,39 @@ def build_retriever(engine: str):
 
 
 @app.post("/ask")
-async def ask_question(request: QuestionRequest):
-    retriever = build_retriever(request.engine)
+def ask_question(request: QuestionRequest):
+    try:
+        retriever = build_retriever(request.engine)
 
-    rag_chain = create_retrieval_chain(
-        retriever,
-        question_answer_chain,
-    )
+        rag_chain = create_retrieval_chain(
+            retriever,
+            question_answer_chain,
+        )
 
-    response = rag_chain.invoke({
-        "input": request.question
-    })
+        response = rag_chain.invoke({
+            "input": request.question
+        })
 
-    sources = [
-        {
-            "metadata": doc.metadata,
-            "content": doc.page_content,
+        sources = [
+            {
+                "metadata": doc.metadata,
+                "content": doc.page_content,
+            }
+            for doc in response["context"]
+        ]
+
+        return {
+            "answer": response["answer"],
+            "sources": sources,
         }
-        for doc in response["context"]
-    ]
 
-    return {
-        "answer": response["answer"],
-        "sources": sources,
-    }
+    except Exception:
+        logger.exception("RAG request failed")
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "The AI assistant is temporarily unavailable. "
+                "Please try again later."
+            ),
+        ) from None
