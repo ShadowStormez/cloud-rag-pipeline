@@ -2,6 +2,7 @@ from pathlib import Path
 from utils import calculate_hash
 import requests
 from bs4 import BeautifulSoup
+import json
 
 def extract_documentation(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
@@ -25,6 +26,10 @@ UNITY_PAGES = {
     "Rigidbody2D": (
         "https://docs.unity3d.com/6000.0/Documentation/"
         "ScriptReference/Rigidbody2D.html"
+    ),
+    "Rigidbody": (
+        "https://docs.unity3d.com/6000.0/Documentation/"
+        "ScriptReference/Rigidbody.html"
     ),
 }
 
@@ -82,10 +87,32 @@ def fetch_documentation(name, url):
     return text
 
 def main():
-    """Download all configured Unity documentation pages."""
+    """Download Unity documentation and preserve source URLs."""
+
+    sources = {}
 
     for name, url in UNITY_PAGES.items():
         fetch_documentation(name, url)
+        sources[f"{name}.txt"] = url
+
+    manifest_path = OUTPUT_DIR / "sources.json"
+
+    manifest_content = json.dumps(
+        sources,
+        indent=2,
+        sort_keys=True,
+    ) + "\n"
+
+    if (
+        not manifest_path.exists()
+        or manifest_path.read_text(encoding="utf-8")
+        != manifest_content
+    ):
+        manifest_path.write_text(
+            manifest_content,
+            encoding="utf-8",
+        )
+        print(f"Updated source manifest: {manifest_path}")
 
     print("\nAll Unity documentation pages downloaded successfully!")
 

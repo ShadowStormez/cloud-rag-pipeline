@@ -11,6 +11,7 @@ def prepare_document(
     source_type: str,
     chunk_size: int = 500,
     chunk_overlap: int = 50,
+    source_url: str | None = None,
 ) -> tuple[str, list[Document]]:
     """Read, hash, and split a documentation file into chunks."""
 
@@ -20,13 +21,18 @@ def prepare_document(
     content = file_path.read_text(encoding="utf-8")
     content_hash = calculate_hash(content)
 
+    metadata = {
+        "source": file_path.as_posix(),
+        "source_type": source_type,
+        "content_hash": content_hash,
+    }
+
+    if source_url is not None:
+        metadata["source_url"] = source_url
+
     document = Document(
         page_content=content,
-        metadata={
-            "source": file_path.as_posix(),
-            "source_type": source_type,
-            "content_hash": content_hash,
-        },
+        metadata=metadata,
     )
 
     splitter = RecursiveCharacterTextSplitter(

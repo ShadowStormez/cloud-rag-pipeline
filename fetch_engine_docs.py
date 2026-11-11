@@ -1,6 +1,6 @@
 
 from pathlib import Path
-
+import json
 import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
@@ -120,26 +120,46 @@ def fetch_documentation(
     print(f"Updated: {engine}/{name}")
     return True
 
-
 def fetch_engine(engine: str) -> int:
-    """Fetch all configured pages for one game engine."""
+    """Fetch configured pages and preserve their source URLs."""
 
     if engine not in DOCUMENTATION_PAGES:
         raise ValueError(f"Unsupported engine: {engine}")
 
     changed = 0
 
+    output_dir = Path("data") / engine
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    sources = {}
+
     with create_session() as session:
         for name, url in DOCUMENTATION_PAGES[engine].items():
-            if fetch_documentation(
-                engine, name, url, session
-            ):
+            sources[f"{name}.txt"] = url
+
+            if fetch_documentation(engine, name, url, session):
                 changed += 1
+
+    manifest_path = output_dir / "sources.json"
+    manifest_content = json.dumps(
+        sources,
+        indent=2,
+        sort_keys=True,
+    ) + "\n"
+
+    if (
+        not manifest_path.exists()
+        or manifest_path.read_text(encoding="utf-8")
+        != manifest_content
+    ):
+        manifest_path.write_text(
+            manifest_content,
+            encoding="utf-8",
+        )
+        print(f"Updated source manifest: {manifest_path}")
 
     print(f"{engine}: {changed} changed pages")
     return changed
-
-
 if __name__ == "__main__":
     for engine_name in DOCUMENTATION_PAGES:
         fetch_engine(engine_name)

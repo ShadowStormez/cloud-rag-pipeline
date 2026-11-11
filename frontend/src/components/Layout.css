@@ -243,7 +243,26 @@
 
 @media (max-width: 768px) {
   .sidebar {
-    display: none;
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 100;
+    width: min(300px, 85vw);
+    min-height: 100dvh;
+    transform: translateX(-100%);
+    transition: transform 250ms ease;
+    box-shadow: none;
+  }
+
+  .sidebar.sidebar--mobile-open {
+    transform: translateX(0);
+    box-shadow: 12px 0 40px rgba(0, 0, 0, 0.35);
+  }
+
+  .sidebar--collapsed {
+    width: min(300px, 85vw);
   }
 
   .topbar {
@@ -304,5 +323,110 @@
   .composer-hint {
     flex-direction: column;
     gap: 4px;
+  }
+}
+
+.conversation {
+  width: 100%;
+  padding-bottom: 12px;
+}
+
+.conversation .chat-message:last-child {
+  margin-bottom: 0;
+}
+
+
+/* API feedback */
+
+.ludex-loading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 16px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.ludex-loading__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--orange);
+  animation: ludex-pulse 1.2s ease-in-out infinite;
+}
+
+.ludex-loading__dot:nth-child(2) {
+  animation-delay: 150ms;
+}
+
+.ludex-loading__dot:nth-child(3) {
+  animation-delay: 300ms;
+  margin-right: 8px;
+}
+
+
+.topbar__workspace-button {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.topbar__workspace-button:hover {
+  color: var(--cream);
+}
+
+.topbar__workspace-button:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 5px;
+  border-radius: 3px;
+}
+
+
+
+
+@keyframes ludex-pulse {
+  0%, 60%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+
+  30% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+.ludex-error {
+  margin-top: 16px;
+  padding: 14px 18px;
+  border: 1px solid #8b3b2a;
+  border-radius: 14px;
+  color: #ffb4a2;
+  background: #301c19;
+  font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ludex-loading__dot {
+    animation: none;
+  }
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+    border: none;
+    background: rgba(0, 0, 0, 0.6);
+    cursor: pointer;
   }
 }

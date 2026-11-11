@@ -1,18 +1,25 @@
-import { useState } from "react";
 import { PanelLeft, Plus, Settings } from "lucide-react";
 import Logo from "./Logo";
 
-export default function Sidebar({ onNewChat }) {
-  const [collapsed, setCollapsed] = useState(false);
+export default function Sidebar({
+  onNewChat,
+  collapsed,
+  onToggle,
+  mobileOpen = false,
+}) {
 
   return (
-    <aside className={`sidebar ${collapsed ? "sidebar--collapsed" : ""}`}>
+    <aside
+        className={`sidebar ${collapsed ? "sidebar--collapsed" : ""} ${
+          mobileOpen ? "sidebar--mobile-open" : ""
+        }`}
+      >
       <div className="sidebar__top">
         {!collapsed && <Logo />}
 
         <button
           className="icon-button"
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={onToggle}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           <PanelLeft size={20} />

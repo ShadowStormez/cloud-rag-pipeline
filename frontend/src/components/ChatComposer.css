@@ -95,6 +95,11 @@
   cursor: not-allowed;
 }
 
+.composer textarea,
+.chat-composer textarea {
+  resize: none;
+}
+
 @media (max-width: 600px) {
   .chat-composer {
     padding: 12px;

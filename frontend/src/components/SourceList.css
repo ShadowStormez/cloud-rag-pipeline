@@ -1,0 +1,82 @@
+
+.source-list {
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.source-list__heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.source-list__citations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+
+
+.source-list__citation {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  max-width: 100%;
+  padding: 10px 16px;
+
+  border: 1px solid #b94318;
+  border-radius: 999px;
+
+  background: #b94318;
+  color: #f3eee3;
+
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-decoration: none;
+
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.source-list__citation:hover {
+  background: #cf4d1c;
+  border-color: #cf4d1c;
+  transform: translateY(-2px);
+}
+
+
+.source-list__citation svg:last-child {
+  color: #ffb184;
+  opacity: 1;
+}
+
+
+.source-list__citation span {
+  overflow-wrap: anywhere;
+}
+
+.source-list__citation:hover svg:last-child {
+  color: #ffcfad;
+}
+
+.source-list__citation:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 3px;
+}
+
+.source-list__citation svg {
+  flex-shrink: 0;
+}
+
+.source-list__citation svg:last-child {
+  color: var(--muted);
+}

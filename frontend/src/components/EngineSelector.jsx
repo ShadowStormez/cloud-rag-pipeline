@@ -4,7 +4,7 @@ import {
   siUnrealengine,
   siGodotengine,
 } from "simple-icons";
-import { Sparkles } from "lucide-react";
+import { Zap } from "lucide-react";
 
 const engines = [
   { id: "auto", label: "Auto" },
@@ -43,7 +43,7 @@ export default function EngineSelector({ value, onChange }) {
           {engine.icon ? (
             <EngineIcon icon={engine.icon} />
           ) : (
-            <Sparkles size={16} />
+            <Zap size={16} />
           )}
           <span>{engine.label}</span>
         </button>
