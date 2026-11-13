@@ -6,6 +6,9 @@ export default function Sidebar({
   collapsed,
   onToggle,
   mobileOpen = false,
+  conversations = [],
+  activeConversationId = null,
+  onSelectConversation,
 }) {
 
   return (
@@ -30,7 +33,42 @@ export default function Sidebar({
         <Plus size={20} />
         {!collapsed && <span>New chat</span>}
       </button>
+  {!collapsed && (
+  <div className="sidebar__history">
+    <div className="sidebar__history-heading">
+      Recent chats
+    </div>
 
+    {conversations.length === 0 ? (
+      <p className="sidebar__history-empty">
+        No conversations yet
+      </p>
+    ) : (
+      <div className="sidebar__history-list">
+        {conversations.map((conversation) => (
+          <button
+            key={conversation.id}
+            type="button"
+            className={`sidebar__history-item ${
+              activeConversationId === conversation.id
+                ? "sidebar__history-item--active"
+                : ""
+            }`}
+            onClick={() => onSelectConversation?.(conversation.id)}
+            title={conversation.title}
+            aria-current={
+              activeConversationId === conversation.id
+                ? "page"
+                : undefined
+            }
+          >
+            <span>{conversation.title}</span>
+          </button>
+        ))}
+      </div>
+    )}
+  </div>
+)}
       <div className="sidebar__spacer" />
 
       <div className="sidebar__bottom">

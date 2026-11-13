@@ -1,5 +1,13 @@
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { signInWithGoogle, signOut } from "./lib/auth";
+import { supabase } from "./lib/supabase";
+import {
+  createConversation,
+  saveMessage,
+  getConversations,
+  getMessages,
+} from "./lib/conversations";
 import { useRef } from "react";
 import { askLudex } from "./api/rag";
 import SplashScreen from "./components/SplashScreen";
@@ -14,10 +22,84 @@ import "./components/Layout.css";
 import "./components/ChatComposer.css";
 
 export default function App() {
-  const [showSplash, setShowSplash] = useState(true);
+const [showSplash, setShowSplash] = useState(true);
+const [user, setUser] = useState(null);
+const [authLoading, setAuthLoading] = useState(true);
+
+useEffect(() => {
+  let active = true;
+
+  supabase.auth.getUser().then(({ data, error }) => {
+    if (!active) return;
+
+    setUser(error ? null : data.user);
+    setAuthLoading(false);
+  });
+
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((event, session) => {
+  if (!active) return;
+
+  if (event === "SIGNED_OUT") {
+    requestIdRef.current += 1;
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+
+    setMessages([]);
+    setConversations([]);
+    setActiveConversationId(null);
+    setQuestion("");
+    setError("");
+    setIsLoading(false);
+  }
+
+  setUser(session?.user ?? null);
+  setAuthLoading(false);
+});
+
+  return () => {
+    active = false;
+    subscription.unsubscribe();
+  };
+}, []);
+
+useEffect(() => {
+  let active = true;
+
+  if (!user) {
+    setConversations([]);
+    setActiveConversationId(null);
+    return;
+  }
+
+  async function loadConversations() {
+    try {
+      const savedConversations = await getConversations();
+
+      if (active) {
+        setConversations(savedConversations);
+      }
+    } catch (err) {
+      if (active) {
+        setError(err.message || "Failed to load conversations.");
+      }
+    }
+  }
+
+  loadConversations();
+
+  return () => {
+    active = false;
+  };
+}, [user?.id]);
+
+
   const [question, setQuestion] = useState("");
   const [engine, setEngine] = useState("auto");
   const [messages, setMessages] = useState([]);
+  const [conversations, setConversations] = useState([]);
+  const [activeConversationId, setActiveConversationId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -35,7 +117,35 @@ export default function App() {
     setEngine(suggestion.engine);
   }
 
+  async function handleSelectConversation(conversationId) {
+  requestIdRef.current += 1;
+  abortControllerRef.current?.abort();
+  abortControllerRef.current = null;
+
+  setIsLoading(false);
+  setError("");
+  setQuestion("");
+  setMessages([]);
+  setActiveConversationId(conversationId);
+  setMobileSidebarOpen(false);
+
+  const requestId = requestIdRef.current;
+
+  try {
+    const savedMessages = await getMessages(conversationId);
+
+    if (requestId !== requestIdRef.current) return;
+
+    setMessages(savedMessages);
+  } catch (err) {
+    if (requestId !== requestIdRef.current) return;
+
+    setError(err.message || "Failed to load conversation.");
+  }
+}
+
   function handleNewChat() {
+  setActiveConversationId(null);
   requestIdRef.current += 1;
   abortControllerRef.current?.abort();
   abortControllerRef.current = null;
@@ -57,6 +167,8 @@ async function handleSubmit() {
   const requestId = ++requestIdRef.current;
   const controller = new AbortController();
 
+  let conversationId = activeConversationId;
+
   abortControllerRef.current = controller;
 
   setMessages((previous) => [
@@ -73,6 +185,34 @@ async function handleSubmit() {
   setIsLoading(true);
 
   try {
+    if (!user) {
+      throw new Error("Please sign in to save your conversations.");
+    }
+
+    if (!conversationId) {
+      const newConversation = await createConversation(
+        trimmedQuestion.slice(0, 80)
+      );
+
+      conversationId = newConversation.id;
+
+      if (requestId !== requestIdRef.current) return;
+
+      setActiveConversationId(conversationId);
+      setConversations((previous) => [
+        newConversation,
+        ...previous,
+      ]);
+    }
+    if (requestId !== requestIdRef.current) return;
+
+      await saveMessage(
+        conversationId,
+        "user",
+        trimmedQuestion
+      );
+
+      if (requestId !== requestIdRef.current) return;
     const result = await askLudex(
       trimmedQuestion,
       selectedEngine,
@@ -81,15 +221,37 @@ async function handleSubmit() {
 
     if (requestId !== requestIdRef.current) return;
 
+    const assistantMessage = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: result.answer,
+      sources: result.sources,
+    };
+
+    // Display the answer immediately.
     setMessages((previous) => [
       ...previous,
-      {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: result.answer,
-        sources: result.sources,
-      },
+      assistantMessage,
     ]);
+
+    // Persist the answer and its documentation citations.
+try {
+  await saveMessage(
+    conversationId,
+    "assistant",
+    result.answer,
+    result.sources
+  );
+} catch (saveError) {
+  if (requestId !== requestIdRef.current) return;
+
+  setError(
+    "The AI response was generated, but it could not be saved. " +
+    "Copy the answer before refreshing or leaving this conversation."
+  );
+
+  console.error("Failed to save assistant response:", saveError);
+}
   } catch (err) {
     if (requestId !== requestIdRef.current) return;
 
@@ -104,13 +266,33 @@ async function handleSubmit() {
   }
 }
 
+async function handleGoogleSignIn() {
+  try {
+    setError("");
+    await signInWithGoogle();
+  } catch (err) {
+    setError(err.message || "Google sign-in failed.");
+  }
+}
 
+async function handleSignOut() {
+  try {
+    setError("");
+    await signOut();
+    handleNewChat();
+  } catch (err) {
+    setError(err.message || "Sign-out failed.");
+  }
+}
   return (
     <>
       {showSplash && <SplashScreen onComplete={finishSplash} />}
 
       <div className="app-layout">
         <Sidebar
+        conversations={conversations}
+        activeConversationId={activeConversationId}
+        onSelectConversation={handleSelectConversation}
           onNewChat={() => {
             handleNewChat();
             setMobileSidebarOpen(false);
@@ -153,6 +335,48 @@ async function handleSubmit() {
               <span aria-hidden="true"> / </span>
               <strong>New conversation</strong>
             </nav>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              {authLoading ? (
+                <span>Checking session...</span>
+              ) : user ? (
+                <>
+                  <span style={{ fontSize: "13px" }}>
+                    {user.email}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    style={{
+                      padding: "9px 16px",
+                      borderRadius: "12px",
+                      border: "1px solid #D9541E",
+                      background: "transparent",
+                      color: "#D9541E",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Sign out
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  style={{
+                    padding: "9px 16px",
+                    borderRadius: "12px",
+                    border: "1px solid #D9541E",
+                    background: "#D9541E",
+                    color: "#fff",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Sign in with Google
+                </button>
+              )}
+            </div>
           </header>
 
           <main className="workspace">

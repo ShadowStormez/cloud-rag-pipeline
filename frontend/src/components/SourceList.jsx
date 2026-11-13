@@ -4,7 +4,7 @@ import { siUnity, siGodotengine, siUnrealengine } from "simple-icons";
 import "./SourceList.css";
 
 const OFFICIAL_HOSTS = {
-  unity: "docs.unity3d.com",
+  unity: "docs.unity.com",
   godot: "docs.godotengine.org",
   unreal: "dev.epicgames.com",
 };
