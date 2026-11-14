@@ -3,8 +3,10 @@ from pathlib import Path
 import json
 import requests
 from bs4 import BeautifulSoup
+from bs4 import NavigableString
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+import re
 
 from utils import calculate_hash
 
@@ -55,10 +57,27 @@ def extract_documentation(html: str) -> str:
             "The page structure may have changed."
         )
 
-    text = main_content.get_text(
-        separator="\n",
-        strip=True,
-    )
+    # Remove documentation heading permalink icons.
+    for anchor in main_content.select("a.headerlink"):
+        anchor.decompose()
+
+    # Remove Godot's navigation and user-contributed notes.
+    for element in main_content.select("#godot-giscus"):
+        element.decompose()
+
+    for element in main_content.find_all(
+        ["p", "div", "section", "h1", "h2", "h3", "h4", "li", "tr", "pre"]
+    ):
+        element.insert_before("\n")
+        element.insert_after("\n")
+
+    text = main_content.get_text(separator=" ", strip=False)
+
+    text = "\n".join(
+    re.sub(r"[^\S\n]+", " ", line).strip()
+    for line in text.splitlines()
+    if line.strip()
+)
 
     if len(text) < 100:
         raise ValueError(

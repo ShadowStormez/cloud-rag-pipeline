@@ -41,3 +41,11 @@ data/ingestion_test/
 # Local workflow backups and review archives
 *.backup
 ludex-code-review.zip
+# Additional local Chroma databases
+chroma_*/
+
+# Generated deployment snapshots
+chroma-*.tar.gz
+
+# Local source backups
+*.bak

@@ -1,4 +1,4 @@
-import { ArrowUpRight, Box, Layers, Gamepad2, Code2 } from "lucide-react";
+import { ArrowUpRight, Box, Gamepad2, Code2 } from "lucide-react";
 
 const suggestions = [
   {
@@ -8,10 +8,10 @@ const suggestions = [
     question: "How does Rigidbody2D work in Unity?",
   },
   {
-    engine: "unreal",
-    label: "Unreal Engine",
-    icon: Layers,
-    question: "What are Actors and Components in Unreal Engine?",
+    engine: "godot",
+    label: "Godot Physics",
+    icon: Gamepad2,
+    question: "How do I move a CharacterBody2D in Godot?",
   },
   {
     engine: "godot",
