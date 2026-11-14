@@ -11,7 +11,9 @@ from langchain_community.vectorstores import Chroma
 from langchain_groq import ChatGroq
 from langchain_classic.chains import create_retrieval_chain
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
+from langchain_core.documents import Document
+from source_citations import select_cited_sources
 import re
 
 load_dotenv()
@@ -82,6 +84,13 @@ system_prompt = (
     "and verify method availability against the retrieved context. "
     "Verify data-binding direction and do not "
     "assume a binding can be assigned directly to a UI property. "
+    "Each retrieved document has a numbered Source identifier. "
+    "Only cite documents that directly support your answer. "
+    "At the very end of your response, add exactly one line in this format: "
+    "Sources used: [1], [3] "
+    "Use the actual source numbers provided in the context. "
+    "Do not cite unrelated documents or invent source numbers. "
+    "If no document supports the answer, write: Sources used: none. "
     "Retrieved documentation:\n{context}"
 )
 
@@ -90,8 +99,16 @@ prompt = ChatPromptTemplate.from_messages([
     ("human", "{input}"),
 ])
 
+document_prompt = PromptTemplate.from_template(
+    "Source [{source_number}]\n"
+    "URL: {source_url}\n"
+    "{page_content}"
+)
+
 question_answer_chain = create_stuff_documents_chain(
-    llm, prompt
+    llm,
+    prompt,
+    document_prompt=document_prompt,
 )
 
 
@@ -544,9 +561,23 @@ def ask_question(request: QuestionRequest):
                 "sources": [],
             }
 
+        numbered_documents = [
+            Document(
+                page_content=doc.page_content,
+                metadata={
+                    **doc.metadata,
+                    "source_number": index,
+                    "source_url": doc.metadata.get(
+                        "source_url", "unknown"
+                    ),
+                },
+            )
+            for index, doc in enumerate(documents, start=1)
+        ]
+
         answer = question_answer_chain.invoke({
             "input": request.question,
-            "context": documents,
+            "context": numbered_documents,
         })
 
         if not isinstance(answer, str) or not answer.strip():
@@ -578,21 +609,21 @@ def ask_question(request: QuestionRequest):
                 "sources": [],
             }
 
-        response = {
-            "answer": answer,
-            "context": documents,
-        }
+        clean_answer, cited_documents = select_cited_sources(
+            answer,
+            documents,
+        )
 
         sources = [
             {
                 "metadata": doc.metadata,
                 "content": doc.page_content,
             }
-            for doc in response["context"]
+            for doc in cited_documents
         ]
 
         return {
-            "answer": response["answer"],
+            "answer": clean_answer,
             "sources": sources,
         }
 
