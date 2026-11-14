@@ -80,3 +80,51 @@
 .source-list__citation svg:last-child {
   color: var(--muted);
 }
+
+/* Unified Ludex styling for documentation citations. */
+.source-list__citation {
+  background: #24211e;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: #f3eee3;
+  padding: 10px 14px;
+  font-weight: 500;
+  transition:
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.source-list__citation:hover {
+  background: #38271f;
+  border-color: transparent;
+  color: #f3eee3;
+  transform: translateY(-1px);
+}
+
+.source-list__citation svg {
+  color: #e66a35;
+}
+
+.source-list__citation svg:last-child,
+.source-list__citation:hover svg:last-child {
+  color: #e66a35;
+}
+
+.source-list__citation span {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.source-list__heading svg {
+  color: #e66a35;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .source-list__citation {
+    transition: none;
+  }
+
+  .source-list__citation:hover {
+    transform: none;
+  }
+}

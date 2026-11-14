@@ -9,6 +9,12 @@ import {
   getMessages,
 } from "./lib/conversations";
 import { useRef } from "react";
+import { PanelLeft } from "lucide-react";
+import {
+  createGuestConversation,
+  saveGuestMessage,
+  getGuestMessages,
+} from "./lib/guestConversations";
 import { askLudex } from "./api/rag";
 import SplashScreen from "./components/SplashScreen";
 import Sidebar from "./components/Sidebar";
@@ -25,6 +31,22 @@ export default function App() {
 const [showSplash, setShowSplash] = useState(true);
 const [user, setUser] = useState(null);
 const [authLoading, setAuthLoading] = useState(true);
+
+  const [question, setQuestion] = useState("");
+  const [engine, setEngine] = useState("auto");
+  const [messages, setMessages] = useState([]);
+  const [conversations, setConversations] = useState([]);
+  const [activeConversationId, setActiveConversationId] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [conversationLoading, setConversationLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  const abortControllerRef = useRef(null);
+  const requestIdRef = useRef(0);
+  const conversationScrollRef = useRef(null);
+  const scrollIntentRef = useRef("bottom");
 
 useEffect(() => {
   let active = true;
@@ -67,9 +89,7 @@ useEffect(() => {
 useEffect(() => {
   let active = true;
 
-  if (!user) {
-    setConversations([]);
-    setActiveConversationId(null);
+  if (!user?.id) {
     return;
   }
 
@@ -95,18 +115,35 @@ useEffect(() => {
 }, [user?.id]);
 
 
-  const [question, setQuestion] = useState("");
-  const [engine, setEngine] = useState("auto");
-  const [messages, setMessages] = useState([]);
-  const [conversations, setConversations] = useState([]);
-  const [activeConversationId, setActiveConversationId] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  const abortControllerRef = useRef(null);
-  const requestIdRef = useRef(0);
+  const activeConversation = conversations.find(
+    (conversation) => conversation.id === activeConversationId
+  );
+  const currentChatTitle = activeConversation?.title || "New conversation";
+
+
+  useEffect(() => {
+    if (conversationLoading || messages.length === 0) return;
+
+    const container = conversationScrollRef.current;
+    if (!container) return;
+
+    if (scrollIntentRef.current === "answer") {
+      const messageElements = container.querySelectorAll(".chat-message");
+      const lastMessage = messageElements[messageElements.length - 1];
+
+      if (lastMessage) {
+        const containerRect = container.getBoundingClientRect();
+        const messageRect = lastMessage.getBoundingClientRect();
+
+        container.scrollTop += messageRect.top - containerRect.top;
+      }
+    } else {
+      container.scrollTop = container.scrollHeight;
+    }
+
+    scrollIntentRef.current = "none";
+  }, [messages, conversationLoading]);
 
   const finishSplash = useCallback(() => {
     setShowSplash(false);
@@ -126,25 +163,34 @@ useEffect(() => {
   setError("");
   setQuestion("");
   setMessages([]);
+  setConversationLoading(true);
   setActiveConversationId(conversationId);
   setMobileSidebarOpen(false);
 
   const requestId = requestIdRef.current;
 
   try {
-    const savedMessages = await getMessages(conversationId);
+    const savedMessages = user
+      ? await getMessages(conversationId)
+      : getGuestMessages(conversationId);
 
     if (requestId !== requestIdRef.current) return;
 
+    scrollIntentRef.current = "bottom";
     setMessages(savedMessages);
   } catch (err) {
     if (requestId !== requestIdRef.current) return;
 
     setError(err.message || "Failed to load conversation.");
+  } finally {
+    if (requestId === requestIdRef.current) {
+      setConversationLoading(false);
+    }
   }
 }
 
   function handleNewChat() {
+  setConversationLoading(false);
   setActiveConversationId(null);
   requestIdRef.current += 1;
   abortControllerRef.current?.abort();
@@ -171,6 +217,7 @@ async function handleSubmit() {
 
   abortControllerRef.current = controller;
 
+  scrollIntentRef.current = "bottom";
   setMessages((previous) => [
     ...previous,
     {
@@ -185,26 +232,26 @@ async function handleSubmit() {
   setIsLoading(true);
 
   try {
-    if (!user) {
-      throw new Error("Please sign in to save your conversations.");
-    }
+    // Guests can chat without creating Supabase records.
+    // Authenticated users retain persistent conversation history.
+    if (user) {
+      if (!conversationId) {
+        const newConversation = await createConversation(
+          trimmedQuestion.slice(0, 80)
+        );
 
-    if (!conversationId) {
-      const newConversation = await createConversation(
-        trimmedQuestion.slice(0, 80)
-      );
+        conversationId = newConversation.id;
 
-      conversationId = newConversation.id;
+        if (requestId !== requestIdRef.current) return;
+
+        setActiveConversationId(conversationId);
+        setConversations((previous) => [
+          newConversation,
+          ...previous,
+        ]);
+      }
 
       if (requestId !== requestIdRef.current) return;
-
-      setActiveConversationId(conversationId);
-      setConversations((previous) => [
-        newConversation,
-        ...previous,
-      ]);
-    }
-    if (requestId !== requestIdRef.current) return;
 
       await saveMessage(
         conversationId,
@@ -213,6 +260,28 @@ async function handleSubmit() {
       );
 
       if (requestId !== requestIdRef.current) return;
+    }
+
+    if (!user) {
+      if (!conversationId) {
+        const newConversation = createGuestConversation(
+          trimmedQuestion.slice(0, 80)
+        );
+
+        conversationId = newConversation.id;
+
+        if (requestId !== requestIdRef.current) return;
+
+        setActiveConversationId(conversationId);
+        setConversations((previous) => [
+          newConversation,
+          ...previous,
+        ]);
+      }
+
+      saveGuestMessage(conversationId, "user", trimmedQuestion);
+    }
+
     const result = await askLudex(
       trimmedQuestion,
       selectedEngine,
@@ -228,30 +297,42 @@ async function handleSubmit() {
       sources: result.sources,
     };
 
-    // Display the answer immediately.
+    // Display the answer from its beginning.
+    scrollIntentRef.current = "answer";
     setMessages((previous) => [
       ...previous,
       assistantMessage,
     ]);
 
-    // Persist the answer and its documentation citations.
-try {
-  await saveMessage(
-    conversationId,
-    "assistant",
-    result.answer,
-    result.sources
-  );
-} catch (saveError) {
-  if (requestId !== requestIdRef.current) return;
+    if (!user && conversationId) {
+      saveGuestMessage(
+        conversationId,
+        "assistant",
+        result.answer,
+        result.sources
+      );
+    }
 
-  setError(
-    "The AI response was generated, but it could not be saved. " +
-    "Copy the answer before refreshing or leaving this conversation."
-  );
+    // Save answers only for authenticated conversations.
+    if (user && conversationId) {
+      try {
+        await saveMessage(
+          conversationId,
+          "assistant",
+          result.answer,
+          result.sources
+        );
+      } catch (saveError) {
+        if (requestId !== requestIdRef.current) return;
 
-  console.error("Failed to save assistant response:", saveError);
-}
+        setError(
+          "The AI response was generated, but it could not be saved. " +
+          "Copy the answer before refreshing or leaving this conversation."
+        );
+
+        console.error("Failed to save assistant response:", saveError);
+      }
+    }
   } catch (err) {
     if (requestId !== requestIdRef.current) return;
 
@@ -305,6 +386,10 @@ async function handleSignOut() {
               setSidebarCollapsed((previous) => !previous);
             }
           }}
+          user={user}
+          authLoading={authLoading}
+          onSignIn={handleGoogleSignIn}
+          onSignOut={handleSignOut}
           mobileOpen={mobileSidebarOpen}
         />
         {mobileSidebarOpen && (
@@ -320,70 +405,32 @@ async function handleSignOut() {
             <nav className="topbar__breadcrumb" aria-label="Breadcrumb">
               <button
                 type="button"
-                className="topbar__workspace-button"
+                className="topbar__mobile-toggle icon-button"
                 onClick={() => {
-                  if (window.matchMedia("(max-width: 768px)").matches) {
-                    setMobileSidebarOpen(true);
-                  } else {
-                    setSidebarCollapsed(false);
-                  }
+                  setSidebarCollapsed(false);
+                  setMobileSidebarOpen(true);
                 }}
-                aria-label="Open workspace sidebar"
+                aria-label="Open sidebar"
               >
-                Workspace
+                <PanelLeft size={20} />
               </button>
-              <span aria-hidden="true"> / </span>
-              <strong>New conversation</strong>
+              <strong title={currentChatTitle}>{currentChatTitle}</strong>
             </nav>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              {authLoading ? (
-                <span>Checking session...</span>
-              ) : user ? (
-                <>
-                  <span style={{ fontSize: "13px" }}>
-                    {user.email}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleSignOut}
-                    style={{
-                      padding: "9px 16px",
-                      borderRadius: "12px",
-                      border: "1px solid #D9541E",
-                      background: "transparent",
-                      color: "#D9541E",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Sign out
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleGoogleSignIn}
-                  style={{
-                    padding: "9px 16px",
-                    borderRadius: "12px",
-                    border: "1px solid #D9541E",
-                    background: "#D9541E",
-                    color: "#fff",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  Sign in with Google
-                </button>
-              )}
-            </div>
           </header>
 
           <main className="workspace">
-            {messages.length === 0 ? (
+            {conversationLoading ? (
+              <div className="conversation" role="status" aria-live="polite">
+                <span className="ludex-loading">Loading conversation...</span>
+              </div>
+            ) : messages.length === 0 && !activeConversationId ? (
               <WelcomeScreen onSuggestion={handleSuggestion} />
             ) : (
-              <section className="conversation" aria-label="Conversation">
+              <section
+                className="conversation"
+                aria-label="Conversation"
+                ref={conversationScrollRef}
+              >
                 {messages.map((message) => (
                   <ChatMessage
                     key={message.id}
@@ -394,10 +441,9 @@ async function handleSignOut() {
                 ))}
                 {isLoading && (
                   <div className="ludex-loading" role="status">
-                    <span className="ludex-loading__dot" />
-                    <span className="ludex-loading__dot" />
-                    <span className="ludex-loading__dot" />
-                    <span>Ludex is thinking...</span>
+                    <span className="ludex-thinking__prompt" aria-hidden="true">&gt;</span>
+                    <span className="ludex-thinking__text">Workin' on it</span>
+                    <span className="ludex-thinking__cursor" aria-hidden="true" />
                   </div>
                 )}
               </section>
@@ -421,6 +467,23 @@ async function handleSignOut() {
                 <span>Enter to send · Shift + Enter for a new line</span>
                 <span>AI can make mistakes. Verify what you ship.</span>
               </div>
+              <nav
+                aria-label="Legal information"
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  gap: "18px",
+                  marginTop: "6px",
+                  fontSize: "12px",
+                }}
+              >
+                <a href="/privacy/index.html" style={{ color: "#D9541E" }}>
+                  Privacy
+                </a>
+                <a href="/terms/index.html" style={{ color: "#D9541E" }}>
+                  Terms
+                </a>
+              </nav>
             </div>
           </main>
         </div>

@@ -1,22 +1,37 @@
-import { ArrowUpRight, Box, Gamepad2, Code2 } from "lucide-react";
+import { ArrowUpRight, Code2 } from "lucide-react";
+import { siUnity, siGodotengine } from "simple-icons";
+
+function EngineBrandIcon({ icon }) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d={icon.path} />
+    </svg>
+  );
+}
 
 const suggestions = [
   {
     engine: "unity",
     label: "Unity",
-    icon: Box,
+    icon: siUnity,
     question: "How does Rigidbody2D work in Unity?",
   },
   {
     engine: "godot",
     label: "Godot Physics",
-    icon: Gamepad2,
+    icon: siGodotengine,
     question: "How do I move a CharacterBody2D in Godot?",
   },
   {
     engine: "godot",
     label: "Godot",
-    icon: Gamepad2,
+    icon: siGodotengine,
     question: "What does Node2D do in Godot?",
   },
   {
@@ -52,7 +67,11 @@ export default function WelcomeScreen({ onSuggestion }) {
               onClick={() => onSuggestion(suggestion)}
             >
               <div className="suggestion-card__engine">
-                <Icon size={16} />
+                {suggestion.engine === "auto" ? (
+                  <Icon size={18} />
+                ) : (
+                  <EngineBrandIcon icon={suggestion.icon} />
+                )}
                 <span>{suggestion.label}</span>
               </div>
 

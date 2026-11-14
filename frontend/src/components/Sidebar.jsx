@@ -1,4 +1,4 @@
-import { PanelLeft, Plus, Settings } from "lucide-react";
+import { PanelLeft, Plus, LogIn, LogOut, UserRound } from "lucide-react";
 import Logo from "./Logo";
 
 export default function Sidebar({
@@ -9,7 +9,24 @@ export default function Sidebar({
   conversations = [],
   activeConversationId = null,
   onSelectConversation,
+  user,
+  authLoading,
+  onSignIn,
+  onSignOut,
 }) {
+  const displayName =
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email?.split("@")[0] ||
+    "Account";
+
+  const initials = displayName
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("");
+
 
   return (
     <aside
@@ -72,19 +89,33 @@ export default function Sidebar({
       <div className="sidebar__spacer" />
 
       <div className="sidebar__bottom">
-        <div className="sidebar__tagline">
-          {!collapsed && (
-            <>
-              <span>YOUR WORKSPACE</span>
-              <p>From idea to playable.</p>
-            </>
-          )}
-        </div>
+        <div className="sidebar__account">
+          <div className="sidebar__account-avatar" aria-hidden="true">
+            {user ? initials : <UserRound size={19} />}
+          </div>
 
-        <button className="sidebar__settings" disabled title="Coming later">
-          <Settings size={19} />
-          {!collapsed && <span>Settings</span>}
-        </button>
+          {!collapsed && (
+            <div className="sidebar__account-info">
+              <span className="sidebar__account-name">
+                {authLoading ? "Checking session..." : user ? displayName : "Guest"}
+              </span>
+              <span className="sidebar__account-detail">
+                {user ? "Signed in" : "Temporary chats"}
+              </span>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="sidebar__account-action"
+            onClick={user ? onSignOut : onSignIn}
+            disabled={authLoading}
+            title={user ? "Sign out" : "Sign in with Google"}
+            aria-label={user ? "Sign out" : "Sign in with Google"}
+          >
+            {user ? <LogOut size={19} /> : <LogIn size={19} />}
+          </button>
+        </div>
       </div>
     </aside>
   );

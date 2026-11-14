@@ -132,3 +132,80 @@
     transition: none;
   }
 }
+
+/* Unified Ludex styling for engine selection. */
+.engine-selector {
+  background: #151515;
+  border: none;
+  border-radius: 999px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.engine-option {
+  background: transparent;
+  color: #b6aea6;
+  border-radius: 999px;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.engine-option:hover:not(.engine-option--active) {
+  background: #24211e;
+  color: var(--cream);
+}
+
+.engine-option--active {
+  background: #38271f;
+  color: #e66a35;
+}
+
+.engine-option--active:hover {
+  background: #493025;
+}
+
+.engine-option:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .engine-option {
+    transition: none;
+  }
+}
+
+/* Unified Ludex styling for the Send button. */
+.chat-composer__send {
+  background: #38271f;
+  color: #e66a35;
+  border: none;
+  border-radius: 12px;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.chat-composer__send:hover:not(:disabled) {
+  background: #493025;
+  color: #ff8752;
+}
+
+.chat-composer__send:disabled {
+  background: #24211e;
+  color: #8a5944;
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.chat-composer__send:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-composer__send {
+    transition: none;
+  }
+}

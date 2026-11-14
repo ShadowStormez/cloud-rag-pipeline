@@ -501,3 +501,638 @@
   outline: 2px solid #d9541e;
   outline-offset: 2px;
 }
+
+/* Keep the sidebar within the viewport. */
+.app-layout {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar__history {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.sidebar__history-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.sidebar__spacer {
+  flex: 0 0 auto;
+}
+
+.main-content {
+  min-height: 0;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    height: 100dvh;
+    min-height: 0;
+  }
+}
+
+/* Independent conversation scrolling and anchored composer. */
+.main-content {
+  height: 100%;
+  overflow: hidden;
+}
+
+.topbar {
+  flex-shrink: 0;
+}
+
+.workspace {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  padding-top: 24px;
+  padding-bottom: 20px;
+}
+
+.conversation {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.composer-container {
+  flex: 0 0 auto;
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .workspace {
+    padding-top: 16px;
+    padding-bottom: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .composer-container {
+    margin-top: 12px;
+  }
+}
+
+/* Orange New Chat icon in expanded and collapsed states. */
+.new-chat-button svg {
+  color: var(--orange);
+  flex-shrink: 0;
+}
+
+/* Consistent sidebar navigation on mobile. */
+.topbar__mobile-toggle {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .topbar__mobile-toggle {
+    display: grid;
+    flex-shrink: 0;
+  }
+
+  .topbar__workspace-label,
+  .topbar__breadcrumb > span[aria-hidden="true"] {
+    display: none;
+  }
+
+  .topbar__breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .topbar__breadcrumb strong {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Softer New Chat button in both sidebar states. */
+.new-chat-button {
+  background: #d8d0c3;
+}
+
+.new-chat-button:hover {
+  background: #e4dbcc;
+}
+
+/* Keep the current conversation title readable. */
+.topbar__breadcrumb {
+  min-width: 0;
+}
+
+.topbar__breadcrumb strong {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Orange suggestion icons and arrows. */
+.suggestion-card__engine svg,
+.suggestion-card__bottom svg {
+  color: var(--orange);
+}
+
+/* Terminal-inspired Ludex thinking animation. */
+.ludex-thinking__prompt {
+  color: var(--orange);
+  font-family: monospace;
+  font-size: 20px;
+  font-weight: 800;
+  animation: ludex-thinking-pulse 1.4s ease-in-out infinite;
+}
+
+.ludex-thinking__text {
+  color: var(--cream);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+
+.ludex-thinking__cursor {
+  width: 7px;
+  height: 15px;
+  background: var(--orange);
+  border-radius: 2px;
+  animation: ludex-thinking-blink 850ms step-end infinite;
+}
+
+@keyframes ludex-thinking-pulse {
+  50% { opacity: 0.4; }
+}
+
+@keyframes ludex-thinking-blink {
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ludex-thinking__prompt,
+  .ludex-thinking__cursor {
+    animation: none;
+  }
+}
+
+/* Reserve viewport space for the composer and its warning. */
+.workspace {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+/* Allow the welcome content to scroll on shorter screens. */
+.workspace > .welcome {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Keep both the input and its warning visible. */
+.workspace > .composer-container {
+  flex: 0 0 auto;
+  margin-top: 16px;
+}
+
+.composer-hint {
+  flex-shrink: 0;
+}
+
+/* Minimal dark New Chat button. */
+.new-chat-button {
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #24211e;
+  color: var(--cream);
+  border: 1px solid #39332e;
+  border-radius: 14px;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.new-chat-button svg {
+  color: #e66a35;
+  width: 30px;
+  height: 30px;
+  padding: 6px;
+  background: #38271f;
+  border-radius: 9px;
+}
+
+.new-chat-button:hover {
+  background: #302720;
+  border-color: rgba(217, 84, 30, 0.55);
+}
+
+.sidebar--collapsed .new-chat-button {
+  justify-content: center;
+  padding: 10px 0;
+}
+
+.sidebar--collapsed .new-chat-button svg {
+  flex-shrink: 0;
+}
+
+.new-chat-button:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 3px;
+}
+
+/* Simplify the New Chat button: no outer border. */
+.new-chat-button {
+  border: none;
+}
+
+.new-chat-button:hover {
+  border: none;
+}
+
+/* Collapsed sidebar: show only the orange plus tile. */
+.sidebar--collapsed .new-chat-button {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sidebar--collapsed .new-chat-button:hover {
+  background: transparent;
+}
+
+.sidebar--collapsed .new-chat-button svg {
+  width: 46px;
+  height: 46px;
+  padding: 12px;
+  background: #38271f;
+  border-radius: 12px;
+}
+
+.sidebar--collapsed .new-chat-button:hover svg {
+  background: #493025;
+}
+
+/* Unified Ludex design: minimal dark suggestion cards. */
+.suggestion-card {
+  background: #24211e;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  transition:
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.suggestion-card:hover {
+  background: #302720;
+  border-color: transparent;
+  transform: translateY(-2px);
+}
+
+.suggestion-card__engine svg,
+.suggestion-card__bottom svg {
+  color: #e66a35;
+}
+
+.suggestion-card:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .suggestion-card:hover {
+    transform: none;
+  }
+}
+
+/* Consistent dark authentication buttons. */
+.auth-button {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 12px;
+  background: #24211e;
+  color: #e66a35;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.auth-button:hover {
+  background: #38271f;
+}
+
+.auth-button:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 3px;
+}
+
+
+/* Unified New Chat appearance in both sidebar states. */
+.new-chat-button,
+.sidebar--collapsed .new-chat-button {
+  background: #38271f;
+  border: none;
+  box-shadow: none;
+  min-height: 44px;
+  transition: none;
+}
+
+.new-chat-button:hover,
+.sidebar--collapsed .new-chat-button:hover {
+  background: #493025;
+}
+
+.new-chat-button svg,
+.sidebar--collapsed .new-chat-button svg {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  flex: 0 0 20px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: #e66a35;
+}
+
+.sidebar--collapsed .new-chat-button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  justify-content: center;
+}
+
+/* Account controls at the bottom of the sidebar. */
+.sidebar__bottom {
+  flex-shrink: 0;
+}
+
+.sidebar__account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 6px;
+  border-top: 1px solid #34302d;
+}
+
+.sidebar__account-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  height: 38px;
+  background: #38271f;
+  color: #e66a35;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sidebar__account-info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.sidebar__account-name {
+  color: var(--cream);
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sidebar__account-detail {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.sidebar__account-action {
+  display: grid;
+  place-items: center;
+  flex: 0 0 34px;
+  height: 34px;
+  border: none;
+  border-radius: 10px;
+  background: #24211e;
+  color: #e66a35;
+  cursor: pointer;
+}
+
+.sidebar__account-action:hover {
+  background: #38271f;
+}
+
+.sidebar__account-action:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
+.sidebar__account-action:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.sidebar--collapsed .sidebar__account {
+  flex-direction: column;
+  padding: 10px 0;
+}
+
+/* Keep account controls at the bottom of the sidebar. */
+.sidebar__bottom {
+  margin-top: auto;
+  flex-shrink: 0;
+}
+
+.sidebar__account {
+  width: 100%;
+}
+
+.sidebar--collapsed .sidebar__bottom {
+  width: 100%;
+}
+
+/* Consistent account controls in the collapsed sidebar. */
+.sidebar--collapsed .sidebar__account {
+  align-items: center;
+  gap: 10px;
+}
+
+.sidebar--collapsed .sidebar__account-avatar,
+.sidebar--collapsed .sidebar__account-action {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+}
+
+.sidebar--collapsed .sidebar__account-avatar {
+  background: #38271f;
+  font-size: 13px;
+}
+
+.sidebar--collapsed .sidebar__account-action {
+  background: #38271f;
+}
+
+.sidebar--collapsed .sidebar__account-action:hover {
+  background: #493025;
+}
+
+/* Ludex sidebar: subtle scrollbar and conversation states. */
+.sidebar__history-list {
+  scrollbar-width: thin;
+  scrollbar-color: #49352b transparent;
+  scrollbar-gutter: stable;
+}
+
+.sidebar__history-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sidebar__history-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar__history-list::-webkit-scrollbar-thumb {
+  background: #49352b;
+  border-radius: 999px;
+}
+
+.sidebar__history-list::-webkit-scrollbar-thumb:hover {
+  background: #70432f;
+}
+
+/* Neutral hover, warm selected state. */
+.sidebar__history-item {
+  border: 1px solid transparent;
+  border-radius: 12px;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.sidebar__history-item:hover {
+  background: #24211e;
+  color: var(--cream);
+}
+
+.sidebar__history-item--active,
+.sidebar__history-item--active:hover {
+  background: #38271f;
+  border-color: transparent;
+  color: var(--cream);
+}
+
+.sidebar__history-item--active::before {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: 13px;
+  margin-right: 7px;
+  vertical-align: -2px;
+  border-radius: 999px;
+  background: #e66a35;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar__history-item {
+    transition: none;
+  }
+}
+
+/* Keep the active-chat indicator beside the title. */
+.sidebar__history-item {
+  position: relative;
+}
+
+.sidebar__history-item--active::before {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  margin: 0;
+  vertical-align: initial;
+}
+
+.sidebar__history-item--active {
+  padding-left: 26px;
+}
+
+/* Ludex error messages: understated, but clearly visible. */
+.ludex-error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 14px 16px;
+  background: #24211e;
+  border: none;
+  border-left: 3px solid #e66a35;
+  border-radius: 12px;
+  color: #e8c3ad;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.ludex-error::before {
+  content: "!";
+  display: grid;
+  place-items: center;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: #38271f;
+  color: #e66a35;
+  font-weight: 700;
+}
+
+/* Clean error panel without the left accent border. */
+.ludex-error {
+  border-left: none;
+}
+
+/* Subtle scrollbar for the conversation area. */
+.conversation {
+  scrollbar-width: thin;
+  scrollbar-color: #49352b transparent;
+  scrollbar-gutter: stable;
+}
+
+.conversation::-webkit-scrollbar {
+  width: 5px;
+}
+
+.conversation::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.conversation::-webkit-scrollbar-thumb {
+  background: #49352b;
+  border-radius: 999px;
+}
+
+.conversation::-webkit-scrollbar-thumb:hover {
+  background: #70432f;
+}
