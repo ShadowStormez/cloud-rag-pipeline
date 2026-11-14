@@ -34,9 +34,19 @@ db = Chroma(
 llm = ChatGroq(model="openai/gpt-oss-20b")
 
 system_prompt = (
-    "You are a technical assistant specializing in Unity, Godot, "
-    "and Godot documentation. "
+    "You are a technical assistant specializing in Unity and Godot "
+    "documentation. "
     "Answer using only the retrieved documentation context. "
+    "Treat retrieved passages as potential evidence, not proof that "
+    "the question is answered. Check that the documentation directly "
+    "supports each substantive claim and any code example. "
+    "A document mentioning similar words or related APIs is not "
+    "sufficient evidence. "
+    "If the context is unrelated or does not adequately answer the "
+    "question, begin your response with: "
+    "'I don't know based on the available documentation.' "
+    "Then briefly explain what information is missing, without "
+    "guessing or inventing a solution. "
     "Do not invent methods, properties, class names, or APIs. "
     "Do not mix APIs from different game engines or versions. "
     "For Godot questions, use Godot 4 GDScript syntax and APIs. "
@@ -61,7 +71,16 @@ system_prompt = (
     "If the documentation does not provide enough information "
     "for a reliable code example, explain the concept instead. "
     "For Unity questions, distinguish editor workflows from "
-    "runtime C# APIs. Verify data-binding direction and do not "
+    "runtime C# APIs. "
+    "For Unity physics examples, distinguish Update() from "
+    "FixedUpdate(): do not place one-frame input checks such as "
+    "Input.GetKeyDown() inside FixedUpdate(). When necessary, "
+    "capture input in Update() and apply physics in FixedUpdate(). "
+    "Do not claim that every Rigidbody2D body type is affected "
+    "by gravity or responds to forces identically. "
+    "Keep Rigidbody (3D) and Rigidbody2D (2D) APIs separate, "
+    "and verify method availability against the retrieved context. "
+    "Verify data-binding direction and do not "
     "assume a binding can be assigned directly to a UI property. "
     "Retrieved documentation:\n{context}"
 )
@@ -233,12 +252,94 @@ def retrieve_with_page_context(engine, question, max_chunks=12):
 
         return comparison_docs[:max_chunks]
 
-    # Preserve existing engine and Godot class filtering.
+    # Prioritize explicitly named, indexed Unity API classes.
+    unity_class_urls = []
+    targeted_docs = []
+
+    if engine == "unity":
+        class_names = dict.fromkeys(
+            re.findall(r"\b[A-Z][A-Za-z0-9]*\b", question)
+        )
+
+        # Keyboard-controlled 2D physics scripts also need
+        # input and Unity lifecycle API documentation.
+        question_lower = question.lower()
+        is_keyboard_controller = (
+            "rigidbody2d" in question_lower
+            and any(
+                term in question_lower
+                for term in ("controller", "script")
+            )
+            and any(
+                term in question_lower
+                for term in (
+                    "keyboard", "input", "space",
+                    "jump", "keycode",
+                )
+            )
+        )
+
+        if is_keyboard_controller:
+            for supporting_class in (
+                "Input",
+                "KeyCode",
+                "MonoBehaviour",
+            ):
+                class_names.setdefault(supporting_class, None)
+
+        for class_name in list(class_names)[:12]:
+            candidate_urls = (
+                (
+                    "https://docs.unity3d.com/6000.0/"
+                    f"Documentation/ScriptReference/{class_name}.html"
+                ),
+                (
+                    "https://docs.unity.com/en-us/engine/6000.0/"
+                    f"script-reference/unityengine/{class_name.lower()}"
+                ),
+            )
+
+            for url in candidate_urls:
+                matches = db._collection.get(
+                    where={
+                        "$and": [
+                            {"source_type": "unity"},
+                            {"source_url": url},
+                        ]
+                    },
+                    limit=1,
+                )
+
+                if not matches["ids"]:
+                    continue
+
+                unity_class_urls.append(url)
+                targeted_docs.extend(
+                    db.similarity_search(
+                        question,
+                        k=5,
+                        filter={
+                            "$and": [
+                                {"source_type": "unity"},
+                                {"source_url": url},
+                            ]
+                        },
+                    )
+                )
+
+                # Avoid retrieving the same class twice when
+                # both URL formats are indexed.
+                break
+
+    # Preserve regular retrieval for additional context and
+    # questions without explicitly named API classes.
     base_retriever = build_retriever(engine, question)
     initial = base_retriever.invoke(question)
 
-    if not initial:
+    if not initial and not targeted_docs:
         return []
+
+    initial = targeted_docs + list(initial)
 
     # Identify relevant pages without assuming a single source.
     page_counts = Counter(
@@ -344,6 +445,10 @@ def retrieve_with_page_context(engine, question, max_chunks=12):
     ranked = sorted(
         enumerate(candidates),
         key=lambda item: (
+            -int(
+                item[1].metadata.get("source_url")
+                in unity_class_urls
+            ),
             -api_definition_score(item[1]),
             -code_score(item[1]),
             item[0],
@@ -365,8 +470,26 @@ def retrieve_with_page_context(engine, question, max_chunks=12):
         seen.add(key)
         unique.append(doc)
 
+    # Give distinct documentation pages an opportunity to contribute
+    # context before taking additional chunks from the same page.
+    # The first occurrence of each URL retains its ranking priority.
+    first_per_page = []
+    remaining = []
+    seen_pages = set()
+
+    for doc in unique:
+        page_url = doc.metadata.get("source_url")
+
+        if page_url and page_url not in seen_pages:
+            first_per_page.append(doc)
+            seen_pages.add(page_url)
+        else:
+            remaining.append(doc)
+
+    diverse_candidates = first_per_page + remaining
+
     return expand_neighboring_chunks(
-        unique,
+        diverse_candidates,
         max_chunks=max_chunks,
     )
 
@@ -411,10 +534,49 @@ def ask_question(request: QuestionRequest):
             max_chunks=10,
         )
 
+        if not documents:
+            return {
+                "answer": (
+                    "I couldn't find relevant documentation to answer "
+                    "that question reliably. Try specifying a Unity or "
+                    "Godot component, class, or feature."
+                ),
+                "sources": [],
+            }
+
         answer = question_answer_chain.invoke({
             "input": request.question,
             "context": documents,
         })
+
+        if not isinstance(answer, str) or not answer.strip():
+            logger.warning("RAG model returned an empty answer")
+            return {
+                "answer": (
+                    "I couldn't generate a reliable answer this time. "
+                    "Please try again or rephrase your question."
+                ),
+                "sources": [],
+            }
+
+        # An explicit lack-of-evidence answer must not cite retrieved
+        # documents as though they support a factual conclusion.
+        normalized_answer = answer.strip().lower()
+        unsupported_prefixes = (
+            "i don't know",
+            "i do not know",
+            "i cannot determine",
+            "i can't determine",
+            "the available documentation does not",
+            "there isn't enough information",
+            "there is not enough information",
+        )
+
+        if normalized_answer.startswith(unsupported_prefixes):
+            return {
+                "answer": answer,
+                "sources": [],
+            }
 
         response = {
             "answer": answer,

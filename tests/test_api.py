@@ -38,11 +38,9 @@ def test_ask_returns_503_when_rag_fails(monkeypatch):
     # Simulate a failure during RAG execution.
     monkeypatch.setattr(
         main,
-        "create_retrieval_chain",
-        lambda *args, **kwargs: MagicMock(
-            invoke=MagicMock(
-                side_effect=RuntimeError("Sensitive internal error")
-            )
+        "retrieve_with_page_context",
+        MagicMock(
+            side_effect=RuntimeError("Sensitive internal error")
         ),
     )
 
