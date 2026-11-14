@@ -22,7 +22,7 @@ with (
     from main import QuestionRequest, build_retriever
 
 
-@pytest.mark.parametrize("engine", ["unity", "godot", "unreal"])
+@pytest.mark.parametrize("engine", ["unity", "godot"])
 def test_engine_filter(engine, monkeypatch):
     mock_db = MagicMock()
     monkeypatch.setattr(sys.modules["main"], "db", mock_db)
@@ -31,7 +31,7 @@ def test_engine_filter(engine, monkeypatch):
 
     mock_db.as_retriever.assert_called_once_with(
         search_kwargs={
-            "k": 3,
+            "k": 5,
             "filter": {"source_type": engine},
         }
     )
@@ -44,7 +44,7 @@ def test_auto_search_has_no_filter(monkeypatch):
     build_retriever("auto")
 
     mock_db.as_retriever.assert_called_once_with(
-        search_kwargs={"k": 3}
+        search_kwargs={"k": 5}
     )
 
 
@@ -58,4 +58,12 @@ def test_invalid_engine_rejected():
         QuestionRequest(
             question="What is an Actor?",
             engine="invalid",
+        )
+
+def test_unreal_engine_rejected():
+    """Unreal must remain unavailable until permission is granted."""
+    with pytest.raises(ValueError):
+        QuestionRequest(
+            question="How do I create an Actor?",
+            engine="unreal",
         )
