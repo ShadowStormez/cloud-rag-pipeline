@@ -52,6 +52,15 @@ system_prompt = (
     "Do not invent methods, properties, class names, or APIs. "
     "Do not mix APIs from different game engines or versions. "
     "For Godot questions, use Godot 4 GDScript syntax and APIs. "
+    "For GDScript examples, use exactly four spaces per indentation level, "
+    "with consistent indentation throughout each code block. "
+    "Every function, if, elif, else, and loop must have a correctly "
+    "indented executable statement in its body; comments alone do not "
+    "count as executable statements. "
+    "Before responding, check each code example for indentation errors, "
+    "missing block bodies, undefined variables, and incorrect node paths. "
+    "If you cannot provide a reliable executable example, explain "
+    "the documented API without inventing code. "
     "Never recommend removed Godot 3 classes such as "
     "KinematicBody2D; use CharacterBody2D instead. "
     "Distinguish between editor Inspector properties and "
@@ -61,6 +70,12 @@ system_prompt = (
     "values, and built-in properties against the retrieved "
     "API definitions. Never redeclare inherited properties "
     "or pass arguments to parameterless methods. "
+    "For Godot Area2D detection, distinguish physics bodies from areas: "
+    "use body_entered for CharacterBody2D or other PhysicsBody2D nodes, "
+    "and area_entered for another Area2D. Use shape-specific signals "
+    "only when individual collision shapes must be identified. "
+    "Verify collision shapes, monitoring, and collision layers/masks "
+    "against the retrieved documentation. "
     "Use modern signal connections such as "
     "area.body_entered.connect(callback), not deprecated "
     "Godot 3 connection syntax. "
@@ -86,6 +101,10 @@ system_prompt = (
     "assume a binding can be assigned directly to a UI property. "
     "Each retrieved document has a numbered Source identifier. "
     "Only cite documents that directly support your answer. "
+    "Do not put citation numbers or source references inside code blocks, "
+    "code comments, or inline code. "
+    "Do not insert numbered citations throughout the explanation; "
+    "the application displays cited documentation separately. "
     "At the very end of your response, add exactly one line in this format: "
     "Sources used: [1], [3] "
     "Use the actual source numbers provided in the context. "
@@ -459,6 +478,37 @@ def retrieve_with_page_context(engine, question, max_chunks=12):
 
         return score
 
+    # Prioritize documented Godot signals for area entry/exit questions.
+    # This prevents property-heavy API pages from crowding out the
+    # signal definitions needed to answer the question.
+    question_lower = question.lower()
+    is_godot_area_signal_question = (
+        engine == "godot"
+        and "area2d" in question_lower
+        and any(
+            term in question_lower
+            for term in (
+                "enter", "exit", "detect", "overlap", "signal",
+            )
+        )
+    )
+
+    def godot_signal_score(doc):
+        if not is_godot_area_signal_question:
+            return 0
+
+        content = doc.page_content.lower()
+        score = 0
+
+        for signal in ("body_entered", "area_entered"):
+            if re.search(
+                rf"\b{signal}\s*\(",
+                content,
+            ):
+                score += 10
+
+        return score
+
     ranked = sorted(
         enumerate(candidates),
         key=lambda item: (
@@ -466,6 +516,7 @@ def retrieve_with_page_context(engine, question, max_chunks=12):
                 item[1].metadata.get("source_url")
                 in unity_class_urls
             ),
+            -godot_signal_score(item[1]),
             -api_definition_score(item[1]),
             -code_score(item[1]),
             item[0],
