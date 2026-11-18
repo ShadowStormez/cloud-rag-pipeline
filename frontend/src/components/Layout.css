@@ -1,0 +1,1138 @@
+:root {
+  --background: #111111;
+  --surface: #1b1b1b;
+  --surface-hover: #242321;
+  --cream: #f3eee3;
+  --orange: #d9541e;
+  --muted: #99938d;
+  --border: #34302d;
+}
+
+.app-layout {
+  min-height: 100vh;
+  display: flex;
+  background: var(--background);
+  color: var(--cream);
+}
+
+.sidebar {
+  width: 264px;
+  flex-shrink: 0;
+  min-height: 100vh;
+  background: #151515;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px;
+  transition: width 200ms ease;
+}
+
+.sidebar--collapsed {
+  width: 76px;
+}
+
+.sidebar__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  margin-bottom: 32px;
+}
+
+.sidebar--collapsed .sidebar__top {
+  justify-content: center;
+}
+
+.sidebar__top .ludex-logo {
+  font-size: 24px;
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  background: var(--surface-hover);
+  color: var(--cream);
+}
+
+.new-chat-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  background: var(--cream);
+  color: var(--background);
+  border: none;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.new-chat-button:hover {
+  background: #e4dbcc;
+}
+
+.sidebar__spacer {
+  flex: 1;
+}
+
+.sidebar__tagline {
+  padding: 18px 12px;
+  margin-bottom: 20px;
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.sidebar__tagline span {
+  color: var(--orange);
+  font-size: 10px;
+  font-family: monospace;
+}
+
+.sidebar__tagline p {
+  margin-bottom: 0;
+  font-size: 14px;
+}
+
+.sidebar__settings {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: left;
+  border-radius: 12px;
+}
+
+.sidebar__settings:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sidebar--collapsed .sidebar__tagline {
+  display: none;
+}
+
+.main-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  height: 80px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 36px;
+}
+
+.topbar__breadcrumb {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.topbar__breadcrumb strong {
+  color: var(--cream);
+  font-weight: 500;
+}
+
+.workspace {
+  flex: 1;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 110px 36px 48px;
+}
+
+.welcome__eyebrow {
+  font-family: monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--orange);
+  margin-bottom: 32px;
+}
+
+.welcome__eyebrow span {
+  margin-right: 10px;
+}
+
+.welcome h1 {
+  font-size: clamp(32px, 4vw, 46px);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+  margin: 0 0 20px;
+}
+
+.welcome__subtitle {
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.6;
+  margin-bottom: 48px;
+}
+
+.suggestion-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.suggestion-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 140px;
+  padding: 22px;
+  background: var(--surface);
+  color: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.suggestion-card:hover {
+  background: var(--surface-hover);
+  border-color: var(--orange);
+}
+
+.suggestion-card__engine {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.suggestion-card__bottom {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.suggestion-card__bottom p {
+  margin: 20px 0 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.suggestion-card__bottom svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 100;
+    width: min(300px, 85vw);
+    min-height: 100dvh;
+    transform: translateX(-100%);
+    transition: transform 250ms ease;
+    box-shadow: none;
+  }
+
+  .sidebar.sidebar--mobile-open {
+    transform: translateX(0);
+    box-shadow: 12px 0 40px rgba(0, 0, 0, 0.35);
+  }
+
+  .sidebar--collapsed {
+    width: min(300px, 85vw);
+  }
+
+  .topbar {
+    height: 68px;
+    padding: 0 20px;
+  }
+
+  .workspace {
+    padding: 72px 24px 32px;
+  }
+
+  .suggestion-grid {
+    gap: 12px;
+  }
+
+  .suggestion-card {
+    padding: 16px;
+    min-height: 150px;
+  }
+}
+
+@media (max-width: 480px) {
+  .suggestion-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .welcome__subtitle {
+    margin-bottom: 32px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .suggestion-card {
+    transition: none;
+  }
+}
+
+
+.composer-container {
+  margin-top: 64px;
+}
+
+.composer-hint {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+@media (max-width: 600px) {
+  .composer-container {
+    margin-top: 36px;
+  }
+
+  .composer-hint {
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+
+.conversation {
+  width: 100%;
+  padding-bottom: 12px;
+}
+
+.conversation .chat-message:last-child {
+  margin-bottom: 0;
+}
+
+
+/* API feedback */
+
+.ludex-loading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 16px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.ludex-loading__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--orange);
+  animation: ludex-pulse 1.2s ease-in-out infinite;
+}
+
+.ludex-loading__dot:nth-child(2) {
+  animation-delay: 150ms;
+}
+
+.ludex-loading__dot:nth-child(3) {
+  animation-delay: 300ms;
+  margin-right: 8px;
+}
+
+
+.topbar__workspace-button {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.topbar__workspace-button:hover {
+  color: var(--cream);
+}
+
+.topbar__workspace-button:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 5px;
+  border-radius: 3px;
+}
+
+
+
+
+@keyframes ludex-pulse {
+  0%, 60%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+
+  30% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+.ludex-error {
+  margin-top: 16px;
+  padding: 14px 18px;
+  border: 1px solid #8b3b2a;
+  border-radius: 14px;
+  color: #ffb4a2;
+  background: #301c19;
+  font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ludex-loading__dot {
+    animation: none;
+  }
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+    border: none;
+    background: rgba(0, 0, 0, 0.6);
+    cursor: pointer;
+  }
+}
+
+/* Conversation history */
+
+.sidebar__history {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  margin-top: 24px;
+  padding: 0 12px;
+}
+
+.sidebar__history-heading {
+  padding: 0 10px;
+  color: #8f8f8f;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sidebar__history-empty {
+  padding: 8px 10px;
+  color: #777;
+  font-size: 13px;
+}
+
+.sidebar__history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  max-height: 45vh;
+}
+
+.sidebar__history-item {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: #bcbcbc;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sidebar__history-item span {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sidebar__history-item:hover {
+  background: rgba(243, 238, 227, 0.07);
+  color: #f3eee3;
+}
+
+.sidebar__history-item--active {
+  background: rgba(217, 84, 30, 0.12);
+  border-color: rgba(217, 84, 30, 0.25);
+  color: #f3eee3;
+}
+
+.sidebar__history-item:focus-visible {
+  outline: 2px solid #d9541e;
+  outline-offset: 2px;
+}
+
+/* Keep the sidebar within the viewport. */
+.app-layout {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar__history {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.sidebar__history-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.sidebar__spacer {
+  flex: 0 0 auto;
+}
+
+.main-content {
+  min-height: 0;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    height: 100dvh;
+    min-height: 0;
+  }
+}
+
+/* Independent conversation scrolling and anchored composer. */
+.main-content {
+  height: 100%;
+  overflow: hidden;
+}
+
+.topbar {
+  flex-shrink: 0;
+}
+
+.workspace {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  padding-top: 24px;
+  padding-bottom: 20px;
+}
+
+.conversation {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.composer-container {
+  flex: 0 0 auto;
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .workspace {
+    padding-top: 16px;
+    padding-bottom: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .composer-container {
+    margin-top: 12px;
+  }
+}
+
+/* Orange New Chat icon in expanded and collapsed states. */
+.new-chat-button svg {
+  color: var(--orange);
+  flex-shrink: 0;
+}
+
+/* Consistent sidebar navigation on mobile. */
+.topbar__mobile-toggle {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .topbar__mobile-toggle {
+    display: grid;
+    flex-shrink: 0;
+  }
+
+  .topbar__workspace-label,
+  .topbar__breadcrumb > span[aria-hidden="true"] {
+    display: none;
+  }
+
+  .topbar__breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .topbar__breadcrumb strong {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Softer New Chat button in both sidebar states. */
+.new-chat-button {
+  background: #d8d0c3;
+}
+
+.new-chat-button:hover {
+  background: #e4dbcc;
+}
+
+/* Keep the current conversation title readable. */
+.topbar__breadcrumb {
+  min-width: 0;
+}
+
+.topbar__breadcrumb strong {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Orange suggestion icons and arrows. */
+.suggestion-card__engine svg,
+.suggestion-card__bottom svg {
+  color: var(--orange);
+}
+
+/* Terminal-inspired Ludex thinking animation. */
+.ludex-thinking__prompt {
+  color: var(--orange);
+  font-family: monospace;
+  font-size: 20px;
+  font-weight: 800;
+  animation: ludex-thinking-pulse 1.4s ease-in-out infinite;
+}
+
+.ludex-thinking__text {
+  color: var(--cream);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+
+.ludex-thinking__cursor {
+  width: 7px;
+  height: 15px;
+  background: var(--orange);
+  border-radius: 2px;
+  animation: ludex-thinking-blink 850ms step-end infinite;
+}
+
+@keyframes ludex-thinking-pulse {
+  50% { opacity: 0.4; }
+}
+
+@keyframes ludex-thinking-blink {
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ludex-thinking__prompt,
+  .ludex-thinking__cursor {
+    animation: none;
+  }
+}
+
+/* Reserve viewport space for the composer and its warning. */
+.workspace {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+/* Allow the welcome content to scroll on shorter screens. */
+.workspace > .welcome {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Keep both the input and its warning visible. */
+.workspace > .composer-container {
+  flex: 0 0 auto;
+  margin-top: 16px;
+}
+
+.composer-hint {
+  flex-shrink: 0;
+}
+
+/* Minimal dark New Chat button. */
+.new-chat-button {
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #24211e;
+  color: var(--cream);
+  border: 1px solid #39332e;
+  border-radius: 14px;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.new-chat-button svg {
+  color: #e66a35;
+  width: 30px;
+  height: 30px;
+  padding: 6px;
+  background: #38271f;
+  border-radius: 9px;
+}
+
+.new-chat-button:hover {
+  background: #302720;
+  border-color: rgba(217, 84, 30, 0.55);
+}
+
+.sidebar--collapsed .new-chat-button {
+  justify-content: center;
+  padding: 10px 0;
+}
+
+.sidebar--collapsed .new-chat-button svg {
+  flex-shrink: 0;
+}
+
+.new-chat-button:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 3px;
+}
+
+/* Simplify the New Chat button: no outer border. */
+.new-chat-button {
+  border: none;
+}
+
+.new-chat-button:hover {
+  border: none;
+}
+
+/* Collapsed sidebar: show only the orange plus tile. */
+.sidebar--collapsed .new-chat-button {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sidebar--collapsed .new-chat-button:hover {
+  background: transparent;
+}
+
+.sidebar--collapsed .new-chat-button svg {
+  width: 46px;
+  height: 46px;
+  padding: 12px;
+  background: #38271f;
+  border-radius: 12px;
+}
+
+.sidebar--collapsed .new-chat-button:hover svg {
+  background: #493025;
+}
+
+/* Unified Ludex design: minimal dark suggestion cards. */
+.suggestion-card {
+  background: #24211e;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  transition:
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.suggestion-card:hover {
+  background: #302720;
+  border-color: transparent;
+  transform: translateY(-2px);
+}
+
+.suggestion-card__engine svg,
+.suggestion-card__bottom svg {
+  color: #e66a35;
+}
+
+.suggestion-card:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .suggestion-card:hover {
+    transform: none;
+  }
+}
+
+/* Consistent dark authentication buttons. */
+.auth-button {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 12px;
+  background: #24211e;
+  color: #e66a35;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.auth-button:hover {
+  background: #38271f;
+}
+
+.auth-button:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 3px;
+}
+
+
+/* Unified New Chat appearance in both sidebar states. */
+.new-chat-button,
+.sidebar--collapsed .new-chat-button {
+  background: #38271f;
+  border: none;
+  box-shadow: none;
+  min-height: 44px;
+  transition: none;
+}
+
+.new-chat-button:hover,
+.sidebar--collapsed .new-chat-button:hover {
+  background: #493025;
+}
+
+.new-chat-button svg,
+.sidebar--collapsed .new-chat-button svg {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  flex: 0 0 20px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: #e66a35;
+}
+
+.sidebar--collapsed .new-chat-button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  justify-content: center;
+}
+
+/* Account controls at the bottom of the sidebar. */
+.sidebar__bottom {
+  flex-shrink: 0;
+}
+
+.sidebar__account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 6px;
+  border-top: 1px solid #34302d;
+}
+
+.sidebar__account-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  height: 38px;
+  background: #38271f;
+  color: #e66a35;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sidebar__account-info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.sidebar__account-name {
+  color: var(--cream);
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sidebar__account-detail {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.sidebar__account-action {
+  display: grid;
+  place-items: center;
+  flex: 0 0 34px;
+  height: 34px;
+  border: none;
+  border-radius: 10px;
+  background: #24211e;
+  color: #e66a35;
+  cursor: pointer;
+}
+
+.sidebar__account-action:hover {
+  background: #38271f;
+}
+
+.sidebar__account-action:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
+.sidebar__account-action:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.sidebar--collapsed .sidebar__account {
+  flex-direction: column;
+  padding: 10px 0;
+}
+
+/* Keep account controls at the bottom of the sidebar. */
+.sidebar__bottom {
+  margin-top: auto;
+  flex-shrink: 0;
+}
+
+.sidebar__account {
+  width: 100%;
+}
+
+.sidebar--collapsed .sidebar__bottom {
+  width: 100%;
+}
+
+/* Consistent account controls in the collapsed sidebar. */
+.sidebar--collapsed .sidebar__account {
+  align-items: center;
+  gap: 10px;
+}
+
+.sidebar--collapsed .sidebar__account-avatar,
+.sidebar--collapsed .sidebar__account-action {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+}
+
+.sidebar--collapsed .sidebar__account-avatar {
+  background: #38271f;
+  font-size: 13px;
+}
+
+.sidebar--collapsed .sidebar__account-action {
+  background: #38271f;
+}
+
+.sidebar--collapsed .sidebar__account-action:hover {
+  background: #493025;
+}
+
+/* Ludex sidebar: subtle scrollbar and conversation states. */
+.sidebar__history-list {
+  scrollbar-width: thin;
+  scrollbar-color: #49352b transparent;
+  scrollbar-gutter: stable;
+}
+
+.sidebar__history-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sidebar__history-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar__history-list::-webkit-scrollbar-thumb {
+  background: #49352b;
+  border-radius: 999px;
+}
+
+.sidebar__history-list::-webkit-scrollbar-thumb:hover {
+  background: #70432f;
+}
+
+/* Neutral hover, warm selected state. */
+.sidebar__history-item {
+  border: 1px solid transparent;
+  border-radius: 12px;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.sidebar__history-item:hover {
+  background: #24211e;
+  color: var(--cream);
+}
+
+.sidebar__history-item--active,
+.sidebar__history-item--active:hover {
+  background: #38271f;
+  border-color: transparent;
+  color: var(--cream);
+}
+
+.sidebar__history-item--active::before {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: 13px;
+  margin-right: 7px;
+  vertical-align: -2px;
+  border-radius: 999px;
+  background: #e66a35;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar__history-item {
+    transition: none;
+  }
+}
+
+/* Keep the active-chat indicator beside the title. */
+.sidebar__history-item {
+  position: relative;
+}
+
+.sidebar__history-item--active::before {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  margin: 0;
+  vertical-align: initial;
+}
+
+.sidebar__history-item--active {
+  padding-left: 26px;
+}
+
+/* Ludex error messages: understated, but clearly visible. */
+.ludex-error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 14px 16px;
+  background: #24211e;
+  border: none;
+  border-left: 3px solid #e66a35;
+  border-radius: 12px;
+  color: #e8c3ad;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.ludex-error::before {
+  content: "!";
+  display: grid;
+  place-items: center;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: #38271f;
+  color: #e66a35;
+  font-weight: 700;
+}
+
+/* Clean error panel without the left accent border. */
+.ludex-error {
+  border-left: none;
+}
+
+/* Subtle scrollbar for the conversation area. */
+.conversation {
+  scrollbar-width: thin;
+  scrollbar-color: #49352b transparent;
+  scrollbar-gutter: stable;
+}
+
+.conversation::-webkit-scrollbar {
+  width: 5px;
+}
+
+.conversation::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.conversation::-webkit-scrollbar-thumb {
+  background: #49352b;
+  border-radius: 999px;
+}
+
+.conversation::-webkit-scrollbar-thumb:hover {
+  background: #70432f;
+}

@@ -219,6 +219,126 @@ def test_embedding_failure_preserves_old_chunks(tmp_path):
     # No incomplete replacement should be inserted
     fake_db._collection.add.assert_not_called()
 
+def test_metadata_only_update_preserves_embeddings(tmp_path):
+    from utils import calculate_hash
+
+    content = "Rigidbody2D controls 2D physics in Unity."
+    document_file = tmp_path / "Rigidbody2D.txt"
+    document_file.write_text(content, encoding="utf-8")
+
+    source_url = (
+        "https://docs.unity3d.com/6000.0/Documentation/"
+        "ScriptReference/Rigidbody2D.html"
+    )
+
+    fake_db = MagicMock()
+    fake_db.get.return_value = {
+        "ids": ["unity-Rigidbody2D-0"],
+        "metadatas": [
+            {
+                "source": document_file.as_posix(),
+                "source_type": "unity",
+                "content_hash": calculate_hash(content),
+            }
+        ],
+    }
+
+    fake_embeddings = MagicMock()
+
+    original_prepare = ingestion_engine.prepare_document
+
+    def prepare_with_url(*args, **kwargs):
+        kwargs["source_url"] = source_url
+        return original_prepare(*args, **kwargs)
+
+    with patch.object(
+        ingestion_engine,
+        "prepare_document",
+        side_effect=prepare_with_url,
+    ), patch.object(
+        ingestion_engine,
+        "HuggingFaceEmbeddings",
+        return_value=fake_embeddings,
+    ), patch.object(
+        ingestion_engine,
+        "Chroma",
+        return_value=fake_db,
+    ):
+        ingestion_engine.ingest_directory(
+            data_dir=tmp_path,
+            source_type="unity",
+        )
+
+    fake_embeddings.embed_documents.assert_not_called()
+    fake_db._collection.add.assert_not_called()
+    fake_db._collection.delete.assert_not_called()
+
+    fake_db._collection.update.assert_called_once()
+
+    update_args = fake_db._collection.update.call_args.kwargs
+
+    assert update_args["ids"] == ["unity-Rigidbody2D-0"]
+    assert update_args["metadatas"][0]["source_url"] == source_url
+
+def test_ingest_document_preserves_source_url(tmp_path):
+    import json
+
+    # Create a documentation file
+    document_file = tmp_path / "Node2D.txt"
+    document_file.write_text(
+        "Node2D is a 2D game object in Godot.",
+        encoding="utf-8",
+    )
+
+    # Create the URL manifest
+    official_url = (
+        "https://docs.godotengine.org/en/stable/"
+        "classes/class_node2d.html"
+    )
+
+    manifest = {"Node2D.txt": official_url}
+
+    (tmp_path / "sources.json").write_text(
+        json.dumps(manifest),
+        encoding="utf-8",
+    )
+
+    # Simulate an empty Chroma database
+    fake_db = MagicMock()
+    fake_db.get.return_value = {
+        "ids": [],
+        "metadatas": [],
+    }
+
+    fake_embeddings = MagicMock()
+    fake_embeddings.embed_documents.return_value = [
+        [0.1, 0.2, 0.3]
+    ]
+
+    with patch.object(
+        ingestion_engine,
+        "HuggingFaceEmbeddings",
+        return_value=fake_embeddings,
+    ), patch.object(
+        ingestion_engine,
+        "Chroma",
+        return_value=fake_db,
+    ):
+        ingestion_engine.ingest_directory(
+            data_dir=tmp_path,
+            source_type="godot",
+        )
+
+    # Verify the metadata actually sent to Chroma
+    fake_db._collection.add.assert_called_once()
+
+    stored_data = fake_db._collection.add.call_args.kwargs
+    metadata = stored_data["metadatas"][0]
+
+    assert metadata["source_url"] == official_url
+    assert metadata["source_type"] == "godot"
+    assert metadata["source"] == document_file.as_posix()
+
 
 
 

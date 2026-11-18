@@ -1,0 +1,14 @@
+:root {
+  font-family: Inter, system-ui, sans-serif;
+  background: #111111;
+  color: #f3eee3;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}

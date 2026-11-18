@@ -59,3 +59,30 @@ def test_prepare_document_rejects_invalid_overlap(tmp_path):
             chunk_size=100,
             chunk_overlap=100,
         )
+
+def test_prepare_document_preserves_source_url(tmp_path):
+    file_path = tmp_path / "Rigidbody.txt"
+    file_path.write_text(
+        "Unity Rigidbody documentation. " * 30,
+        encoding="utf-8",
+    )
+
+    source_url = (
+        "https://docs.unity3d.com/6000.0/Documentation/"
+        "ScriptReference/Rigidbody.html"
+    )
+
+    _, chunks = prepare_document(
+        file_path=file_path,
+        source_type="unity",
+        chunk_size=100,
+        chunk_overlap=10,
+        source_url=source_url,
+    )
+
+    assert len(chunks) > 1
+
+    for chunk in chunks:
+        assert chunk.metadata["source_url"] == source_url
+        assert chunk.metadata["source_type"] == "unity"
+        assert chunk.metadata["source"] == file_path.as_posix()

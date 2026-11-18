@@ -28,3 +28,17 @@ chroma_atomic_test/
 
 # Local development files
 .vscode/
+
+# Additional local Chroma databases and backups
+chroma_*/
+chroma-*.tar.gz
+*.bak
+
+# Downloaded documentation and crawler output
+data/
+*.backup
+*.zip
+
+# Frontend dependencies and build output
+frontend/node_modules/
+frontend/dist/

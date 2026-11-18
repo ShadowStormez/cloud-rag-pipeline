@@ -1,7 +1,7 @@
 
 import os
 from pathlib import Path
-
+import json
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 
@@ -16,6 +16,13 @@ def ingest_directory(
     """Incrementally ingest documentation from one provider."""
 
     data_dir = Path(data_dir)
+    manifest_path = data_dir / "sources.json"
+    source_urls = {}
+
+    if manifest_path.exists():
+        source_urls = json.loads(
+            manifest_path.read_text(encoding="utf-8")
+        )
     db_dir = db_dir or os.getenv(
         "CHROMA_DB_DIR", "./chroma_unity_test"
     )
@@ -42,8 +49,9 @@ def ingest_directory(
         print(f"\nChecking: {source}")
 
         current_hash, chunks = prepare_document(
-            file_path=file_path,
-            source_type=source_type,
+        file_path=file_path,
+        source_type=source_type,
+        source_url=source_urls.get(file_path.name),
         )
 
         existing = db.get(where={"source": source})
@@ -57,8 +65,30 @@ def ingest_directory(
             )
 
             if stored_hash == current_hash:
-                print("No changes detected. Skipping embeddings.")
-                skipped_files += 1
+                updated_metadatas = []
+                metadata_changed = False
+
+                for existing_meta in existing_metadata:
+                    new_meta = dict(existing_meta)
+
+                    for key, value in chunks[0].metadata.items():
+                        if new_meta.get(key) != value:
+                            new_meta[key] = value
+                            metadata_changed = True
+
+                    updated_metadatas.append(new_meta)
+
+                if metadata_changed:
+                    db._collection.update(
+                        ids=existing_ids,
+                        metadatas=updated_metadatas,
+                    )
+                    print("Metadata updated without regenerating embeddings.")
+                    updated_files += 1
+                else:
+                    print("No changes detected. Skipping embeddings.")
+                    skipped_files += 1
+
                 continue
 
         print("New or changed document detected.")

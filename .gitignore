@@ -20,3 +20,45 @@ chroma-snapshot.tar.gz
 
 # macOS
 .DS_Store
+
+# Experimental automatic documentation downloads
+data/automatic_test/
+
+# Experimental automatic documentation vector database
+chroma_automatic_test/
+
+# Local and experimental Chroma databases
+chroma_automatic_full/
+chroma_automatic_test_backup_*/
+chroma_ingestion_test/
+chroma_unity_test_backup_*/
+
+# Downloaded and generated documentation
+data/automatic/
+data/discovery/
+data/ingestion_test/
+
+# Local workflow backups and review archives
+*.backup
+ludex-code-review.zip
+# Additional local Chroma databases
+chroma_*/
+
+# Generated deployment snapshots
+chroma-*.tar.gz
+
+# Local source backups
+*.bak
+
+# Generated Ludex documentation archives
+ludex-documentation-state.tar.gz
+
+# Temporary documentation ingestion and testing data
+data/godot_ingestion_test/
+data/ingestion_smoke_test/
+data/ludex_ingestion_snapshot/
+data/unity_ingestion_sample/
+
+# Generated local execution logs
+ludex-docker-build.log
+ludex-ingestion.log
