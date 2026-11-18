@@ -52,30 +52,53 @@ When a user submits a question:
 
 ```text
 cloud-rag-pipeline/
-├── frontend/                    # React and Vite web application
+├── .github/
+│   └── workflows/                # CI/CD and documentation automation
+├── data/                         # Documentation samples and local data
+├── frontend/                     # React and Vite web application
 │   ├── src/
-│   │   ├── components/          # Chat interface components
-│   │   ├── api/                 # Backend API integration
-│   │   └── lib/                 # Authentication and chat storage
+│   │   ├── components/           # Chat interface components
+│   │   ├── api/                  # Backend API integration
+│   │   └── lib/                  # Authentication and chat storage
 │   └── package.json
-├── tests/                       # Automated Python tests
-├── data/                        # Documentation samples and local data
-├── .github/workflows/           # CI/CD and documentation automation
-├── main.py                      # RAG retrieval and question answering
-├── api.py                       # FastAPI application and health endpoint
-├── ingestion_engine.py          # Incremental documentation ingestion
-├── ingest_ludex_docs.py         # Unity and Godot ingestion
-├── documentation_discovery.py   # Official documentation discovery
-├── download_discovered_docs.py  # Documentation downloader
-├── documentation_state.py       # Persistent crawler state in Azure
-├── normalize_chroma_sources.py  # Legacy Chroma metadata migration
-├── source_citations.py          # Source citation processing
-├── validate_chroma.py           # Database validation
-├── snapshot_chroma.py           # Chroma snapshot creation
-├── restore_chroma.py            # Azure snapshot restoration
-├── Dockerfile                   # Backend container configuration
-└── requirements.txt             # Python dependencies
+├── tests/                        # Automated Python tests
+│
+├── api.py                        # FastAPI endpoints and CORS configuration
+├── main.py                       # RAG retrieval and question answering
+├── source_citations.py           # Documentation citation selection
+│
+├── automatic_docs.py             # Shared documentation download logic
+├── bulk_download_docs.py         # Resumable batch download utility
+├── crawl_progress.py             # Documentation crawler progress tracking
+├── discover_docs.py              # Documentation discovery CLI
+├── documentation_discovery.py    # Sitemap discovery and crawler safeguards
+├── documentation_selection.py    # Documentation URL selection
+├── documentation_state.py        # Persistent crawler state management
+├── download_discovered_docs.py   # Unity and Godot documentation downloader
+├── fetch_engine_docs.py          # HTML extraction and sample Godot fetching
+├── fetch_unity.py                # Original Unity sample-page fetcher
+│
+├── document_processing.py        # Documentation chunking and metadata
+├── ingestion_engine.py           # Shared incremental ingestion logic
+├── ingest_ludex_docs.py          # Unity and Godot documentation ingestion
+├── ingest_unity.py               # Unity-specific ingestion wrapper
+├── normalize_chroma_sources.py   # Legacy Chroma source path normalization
+├── utils.py                      # Shared utility functions
+│
+├── restore_chroma.py             # Restore Chroma from Azure Blob Storage
+├── snapshot_chroma.py            # Create Chroma database snapshots
+├── validate_chroma.py            # Validate Chroma data and metadata
+│
+├── .dockerignore                 # Docker build exclusions
+├── .gitignore                    # Git exclusions
+├── Dockerfile                    # Backend container configuration
+├── requirements.txt              # Python dependencies
+└── README.md                     # Main project documentation
 ```
+
+Generated documentation, local Chroma databases, temporary archives, and development environment files are excluded from Git where configured.
+
+The repository separates the application, documentation discovery and downloading, incremental ingestion, and deployment utilities. Unity-specific legacy wrappers are retained where they still support existing functionality or automated tests. Unreal Engine documentation fetching remains disabled pending permission.
 
 Generated documentation, local Chroma databases, and temporary snapshot archives are excluded from Git.
 
