@@ -141,6 +141,12 @@ jobs:
         run: |
           python restore_chroma.py
 
+      - name: Normalize legacy Chroma source paths
+        env:
+          CHROMA_DB_DIR: ./chroma_unity_test
+        run: |
+          python normalize_chroma_sources.py
+
       - name: Incrementally ingest Unity and Godot
         env:
           CHROMA_DB_DIR: ./chroma_unity_test
