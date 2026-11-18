@@ -1,16 +1,100 @@
-# React + Vite
+# Ludex Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The Ludex frontend is a responsive React application that provides a chat interface for an AI-powered Unity and Godot documentation assistant.
 
-Currently, two official plugins are available:
+It is built with **React 19 and Vite 8** and deployed on Cloudflare Pages.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Live Application
 
-## React Compiler
+https://ludex-8xs.pages.dev/
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Features
 
-## Expanding the Oxlint configuration
+- Unity, Godot, and automatic engine selection.
+- AI-generated answers with clickable official documentation citations.
+- Google sign-in through Supabase Authentication.
+- Persistent chat history for authenticated users.
+- Temporary in-memory conversations for guests.
+- Responsive interface with mobile navigation.
+- Markdown-rendered answers and code blocks.
+- Loading indicators, error handling, and request cancellation.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Technology Stack
+
+- React 19
+- Vite 8
+- JavaScript
+- Supabase JavaScript SDK
+- React Markdown and Remark GFM
+- Lucide React
+- Oxlint
+
+## Local Development
+
+From the repository root:
+
+```bash
+cd frontend
+npm ci
+```
+
+Create a `.env.local` file inside `frontend/`:
+
+```dotenv
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+The frontend normally runs at `http://localhost:5173`.
+
+The FastAPI backend must be running separately for question answering to work.
+
+## Available Commands
+
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Start the development server |
+| `npm run build` | Create a production build |
+| `npm run preview` | Preview the production build |
+| `npm run lint` | Run Oxlint |
+
+## Authentication and Conversation Storage
+
+Ludex uses Supabase Auth for Google OAuth.
+
+Authenticated users can create conversations, save messages with source citations, and retrieve previous conversations from Supabase.
+
+Guest conversations are stored temporarily in JavaScript memory and are not preserved after reloading the application.
+
+The Supabase project requires appropriate authentication settings, database tables, and Row Level Security policies to protect user data.
+
+## Backend Integration
+
+The frontend communicates with the FastAPI backend through `frontend/src/api/rag.js`.
+
+Questions are submitted to the `POST /ask` endpoint with the selected engine:
+
+- `auto`
+- `unity`
+- `godot`
+
+The API returns an answer and an array of supporting documentation sources.
+
+## Deployment
+
+The frontend is hosted on Cloudflare Pages. Production builds use the environment variables configured for the Cloudflare Pages project.
+
+The application communicates with the Azure-hosted backend:
+
+https://cloud-rag-api.icypebble-38736748.swedencentral.azurecontainerapps.io
+
+## Related Documentation
+
+See the repository's root `README.md` for the complete Ludex architecture, backend setup, documentation pipeline, testing, and cloud deployment information.
