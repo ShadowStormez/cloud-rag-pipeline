@@ -49,3 +49,16 @@ chroma-*.tar.gz
 
 # Local source backups
 *.bak
+
+# Generated Ludex documentation archives
+ludex-documentation-state.tar.gz
+
+# Temporary documentation ingestion and testing data
+data/godot_ingestion_test/
+data/ingestion_smoke_test/
+data/ludex_ingestion_snapshot/
+data/unity_ingestion_sample/
+
+# Generated local execution logs
+ludex-docker-build.log
+ludex-ingestion.log

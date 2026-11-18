@@ -89,7 +89,14 @@ def fetch_documentation(name, url):
 def main():
     """Download Unity documentation and preserve source URLs."""
 
-    sources = {}
+    manifest_path = OUTPUT_DIR / "sources.json"
+
+    if manifest_path.exists():
+        sources = json.loads(
+            manifest_path.read_text(encoding="utf-8")
+        )
+    else:
+        sources = {}
 
     for name, url in UNITY_PAGES.items():
         fetch_documentation(name, url)

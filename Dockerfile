@@ -8,8 +8,13 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV CHROMA_DB_DIR=/app/chroma_db
 
-# Install dependencies
+# Install CPU-only PyTorch to avoid unnecessary CUDA dependencies
 COPY requirements.txt .
+RUN pip install --no-cache-dir \
+    torch==2.15.0 \
+    --index-url https://download.pytorch.org/whl/cpu
+
+# Install remaining application dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code

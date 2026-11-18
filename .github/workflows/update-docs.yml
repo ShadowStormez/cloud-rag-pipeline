@@ -2,9 +2,6 @@
 name: Update Game Engine Documentation
 
 on:
-  schedule:
-    - cron: "0 3 * * *"
-
   workflow_dispatch:
     inputs:
       bootstrap:
@@ -14,12 +11,16 @@ on:
         default: false
 
 permissions:
-  contents: write
+  contents: read
   id-token: write
 
 concurrency:
   group: cloud-rag-documentation-update
   cancel-in-progress: false
+
+env:
+  LUDEX_SNAPSHOT_BLOB: chroma-ludex-expanded-v2.tar.gz
+  LUDEX_DOCUMENTATION_BLOB: ludex-documentation-state.tar.gz
 
 jobs:
   update-documentation:
@@ -45,43 +46,106 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
+      - name: Install crawler and Azure dependencies
         run: |
-          python -m pip install requests beautifulsoup4
+          python -m pip install requests beautifulsoup4 azure-identity azure-storage-blob
 
-      - name: Fetch game engine documentation
+      - name: Restore documentation state from Azure
         run: |
-          python fetch_unity.py
-          python fetch_engine_docs.py
+          python documentation_state.py download
+
+      - name: Record documentation state before downloading
+        run: |
+          python - <<'PYCODE'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          state = {}
+
+          for engine in ("unity", "godot"):
+              folder = Path("data/automatic") / engine
+              state[engine] = {
+                  file.name: hashlib.sha256(file.read_bytes()).hexdigest()
+                  for file in folder.glob("*.txt")
+              }
+
+          Path("/tmp/ludex-documentation-before.json").write_text(
+              json.dumps(state),
+              encoding="utf-8",
+          )
+
+          print("Documentation baseline recorded.")
+          PYCODE
+
+      - name: Download missing Unity documentation
+        run: |
+          python download_discovered_docs.py --engine unity --max-pages 1500 --delay 0.5
+
+      - name: Download missing Godot documentation
+        run: |
+          python download_discovered_docs.py --engine godot --max-pages 1500 --delay 1.0
 
       - name: Detect documentation changes
         id: docs_changes
         run: |
-          if [ -n "$(git status --porcelain -- data/unity/ data/godot/ data/unreal/)" ]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "Game engine documentation has changed."
-          else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "No game engine documentation changes detected."
-          fi
+          python - <<'PYCODE'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          before = json.loads(
+              Path("/tmp/ludex-documentation-before.json").read_text()
+          )
+
+          changed = False
+
+          for engine in ("unity", "godot"):
+              folder = Path("data/automatic") / engine
+
+              current = {
+                  file.name: hashlib.sha256(file.read_bytes()).hexdigest()
+                  for file in folder.glob("*.txt")
+              }
+
+              previous = before.get(engine, {})
+
+              added = len(current.keys() - previous.keys())
+              removed = len(previous.keys() - current.keys())
+              modified = sum(
+                  current[name] != previous[name]
+                  for name in current.keys() & previous.keys()
+              )
+
+              print(
+                  f"{engine}: {added} added, "
+                  f"{modified} modified, {removed} removed"
+              )
+
+              changed |= (added + modified + removed) > 0
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"changed={str(changed).lower()}\n")
+          PYCODE
 
       - name: Install test dependencies
         run: |
           python -m pip install -r requirements.txt
           python -m pip install pytest==9.2.0
 
-      - name: Restore existing Chroma database
+      - name: Restore existing Ludex Chroma database
         env:
           CHROMA_DB_DIR: ./chroma_unity_test
+          CHROMA_BLOB_NAME: ${{ env.LUDEX_SNAPSHOT_BLOB }}
         run: |
           python restore_chroma.py
 
-      - name: Incrementally ingest all game engines
+      - name: Incrementally ingest Unity and Godot
         env:
           CHROMA_DB_DIR: ./chroma_unity_test
         run: |
-          python ingest_unity.py
-          python ingest_engine_docs.py
+          python ingest_ludex_docs.py
 
       - name: Validate multi-engine database
         env:
@@ -100,18 +164,23 @@ jobs:
       - name: Validate updated Chroma snapshot
         if: steps.docs_changes.outputs.changed == 'true' || inputs.bootstrap == true
         run: |
-          python - <<'PY'
+          python - <<'PYCODE'
           import tarfile
           import tempfile
           from pathlib import Path
-          import chromadb
+
+          from validate_chroma import validate_database
 
           with tempfile.TemporaryDirectory() as temp:
               with tarfile.open("chroma-snapshot.tar.gz", "r:gz") as archive:
                   members = archive.getmembers()
 
+                  if not members:
+                      raise RuntimeError("Snapshot archive is empty")
+
                   for member in members:
                       path = Path(member.name)
+
                       if (
                           path.is_absolute()
                           or ".." in path.parts
@@ -119,51 +188,17 @@ jobs:
                           or path.parts[0] != "chroma_unity_test"
                           or not (member.isfile() or member.isdir())
                       ):
-                          raise ValueError(f"Invalid archive member: {member.name}")
+                          raise ValueError(
+                              f"Invalid archive member: {member.name}"
+                          )
 
                   archive.extractall(temp, filter="data")
 
               db_path = Path(temp) / "chroma_unity_test"
+              validate_database(db_path)
 
-              if not (db_path / "chroma.sqlite3").is_file():
-                  raise RuntimeError("Snapshot is missing chroma.sqlite3")
-
-              client = chromadb.PersistentClient(path=str(db_path))
-              collections = client.list_collections()
-
-              if not collections:
-                  raise RuntimeError("Snapshot contains no collections")
-
-              total_chunks = sum(c.count() for c in collections)
-
-              if total_chunks == 0:
-                  raise RuntimeError("Snapshot contains no document chunks")
-
-              collection = client.get_collection("langchain")
-              records = collection.get(include=["metadatas"])
-
-              from collections import Counter
-
-              counts = Counter(
-                  metadata.get("source_type", "legacy")
-                  for metadata in records["metadatas"]
-              )
-
-              required_engines = {"unity", "godot", "unreal"}
-
-              missing = required_engines - {
-                  engine for engine, count in counts.items()
-                  if count > 0
-              }
-
-              if missing:
-                  raise RuntimeError(
-                      f"Snapshot missing engines: {sorted(missing)}"
-                  )
-
-              print(f"Snapshot validation passed: {total_chunks} chunks")
-              print(f"Engine distribution: {dict(counts)}")
-          PY
+          print("PASS: Snapshot archive and database validated.")
+          PYCODE
 
       - name: Run automated tests
         run: |
@@ -178,14 +213,24 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-      - name: Upload updated documentation artifact
+      - name: Package updated documentation state
+        if: steps.docs_changes.outputs.changed == 'true' || inputs.bootstrap == true
+        run: |
+          python -c "from documentation_state import create_archive; create_archive()"
+
+      - name: Upload documentation state artifact
         if: steps.docs_changes.outputs.changed == 'true' || inputs.bootstrap == true
         uses: actions/upload-artifact@v4
         with:
-          name: updated-game-engine-documentation
-          path: data/
+          name: ludex-documentation-state
+          path: ludex-documentation-state.tar.gz
           if-no-files-found: error
           retention-days: 1
+
+      - name: Persist crawler progress without deployment
+        if: ${{ steps.docs_changes.outputs.changed == 'false' && inputs.bootstrap != true }}
+        run: |
+          python documentation_state.py upload
 
   deploy-documentation:
     name: Deploy updated documentation
@@ -206,6 +251,15 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Azure documentation-state dependencies
+        run: |
+          python -m pip install azure-identity azure-storage-blob
 
       - name: Capture production image and verify multi-engine API support
         run: |
@@ -248,19 +302,20 @@ jobs:
           name: validated-chroma-snapshot
           path: .
 
-      - name: Download updated game engine documentation
+      - name: Download documentation state artifact
         uses: actions/download-artifact@v4
         with:
-          name: updated-game-engine-documentation
-          path: /tmp/updated-docs
+          name: ludex-documentation-state
+          path: .
 
-      - name: Synchronize documentation into checkout
+      - name: Restore updated documentation state
         run: |
-          for engine in unity godot unreal; do
-            test -d "/tmp/updated-docs/$engine"
-            mkdir -p "data/$engine"
-            rsync -a --delete "/tmp/updated-docs/$engine/" "data/$engine/"
-          done
+          python - <<'PYCODE'
+          from documentation_state import safe_extract
+
+          safe_extract("ludex-documentation-state.tar.gz")
+          print("Updated documentation state restored.")
+          PYCODE
 
       - name: Capture production Blob state and create verified backup
         id: verify_backup
@@ -268,7 +323,7 @@ jobs:
           set -euo pipefail
           account=cloudragstorearya26
           container=chroma-snapshots
-          production=chroma-unity-snapshot-clean.tar.gz
+          production="$LUDEX_SNAPSHOT_BLOB"
           backup="chroma-unity-backup-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.tar.gz"
           echo "BACKUP_BLOB_NAME=$backup" >> "$GITHUB_ENV"
 
@@ -326,7 +381,7 @@ jobs:
           az storage blob upload \
             --account-name cloudragstorearya26 \
             --container-name chroma-snapshots \
-            --name chroma-unity-snapshot-clean.tar.gz \
+            --name "$LUDEX_SNAPSHOT_BLOB" \
             --file chroma-snapshot.tar.gz \
             --auth-mode login --overwrite true \
             --if-match "$ORIGINAL_ETAG" --output none
@@ -336,14 +391,14 @@ jobs:
           az storage blob download \
             --account-name cloudragstorearya26 \
             --container-name chroma-snapshots \
-            --name chroma-unity-snapshot-clean.tar.gz \
+            --name "$LUDEX_SNAPSHOT_BLOB" \
             --file /tmp/chroma-promoted.tar.gz \
             --auth-mode login --output none
           cmp chroma-snapshot.tar.gz /tmp/chroma-promoted.tar.gz
           new_etag=$(az storage blob show \
             --account-name cloudragstorearya26 \
             --container-name chroma-snapshots \
-            --name chroma-unity-snapshot-clean.tar.gz \
+            --name "$LUDEX_SNAPSHOT_BLOB" \
             --auth-mode login --query properties.etag -o tsv)
           test -n "$new_etag"
           echo "PROMOTED_ETAG=$new_etag" >> "$GITHUB_ENV"
@@ -399,7 +454,6 @@ jobs:
           questions = {
               "unity": "What does SpriteRenderer do?",
               "godot": "How does RigidBody2D work?",
-              "unreal": "What is an Actor?",
           }
 
           for engine, question in questions.items():
@@ -457,7 +511,7 @@ jobs:
           set -euo pipefail
           account=cloudragstorearya26
           container=chroma-snapshots
-          production=chroma-unity-snapshot-clean.tar.gz
+          production="$LUDEX_SNAPSHOT_BLOB"
           backup_file=/tmp/chroma-backup-check/backup.tar.gz
           test -s "$backup_file"
           test -n "${PREVIOUS_IMAGE:-}"
@@ -536,16 +590,7 @@ jobs:
           echo 'Rollback health verification failed; inspect Azure manually.'
           exit 1
 
-      - name: Commit documentation updates
+      - name: Persist verified documentation state to Azure
+        if: ${{ success() && steps.promote_snapshot.outputs.completed == 'true' }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add -A -- data/unity/ data/godot/ data/unreal/
-
-          if git diff --cached --quiet; then
-            echo "No documentation changes to commit."
-          else
-            git commit -m "Automatically update game engine documentation"
-            git push origin HEAD:main
-          fi
+          python documentation_state.py upload
