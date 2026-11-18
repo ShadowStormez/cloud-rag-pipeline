@@ -22,16 +22,6 @@ DOCUMENTATION_PAGES = {
             "classes/class_rigidbody2d.html"
         ),
     },
-    "unreal": {
-        "Actor": (
-            "https://dev.epicgames.com/documentation/en-us/"
-            "unreal-engine/actors-in-unreal-engine"
-        ),
-        "Components": (
-            "https://dev.epicgames.com/documentation/en-us/"
-            "unreal-engine/components-in-unreal-engine"
-        ),
-    },
 }
 
 
@@ -179,6 +169,7 @@ def fetch_engine(engine: str) -> int:
 
     print(f"{engine}: {changed} changed pages")
     return changed
+
 if __name__ == "__main__":
-    for engine_name in DOCUMENTATION_PAGES:
-        fetch_engine(engine_name)
+    # Unreal documentation fetching remains disabled pending permission.
+    fetch_engine("godot")
