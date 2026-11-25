@@ -16,7 +16,12 @@ permissions:
   id-token: write
 
 jobs:
+  verify:
+    name: Run required Python CI checks
+    uses: ./.github/workflows/ci.yml
+
   publish:
+    needs: verify
     runs-on: ubuntu-latest
     concurrency:
       group: cloud-rag-azure-deployment
